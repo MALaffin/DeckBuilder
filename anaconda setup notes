@@ -1,0 +1,74 @@
+https://linuxize.com/post/how-to-install-anaconda-on-ubuntu-20-04/
+
+for navigator prep the parts:
+sudo apt install libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6
+
+download:
+wget -P /tmp https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh
+
+check the file
+sha256sum /tmp/Anaconda3-2020.02-Linux-x86_64.sh
+should be
+2b9f088b2022edb474915d9f69a803d6449d5fdb4c303041f60ac4aefcc208bb  /tmp/Anaconda3-2020.02-Linux-x86_64.sh
+or not
+
+install anaconda
+bash /tmp/Anaconda3-2020.02-Linux-x86_64.sh
+lots of yes
+(want conda on PATH)
+source ~/.bashrc
+
+restart terminal
+
+anaconda-navigator
+
+
+Dont want individual python environments for similar projects; link them to a common env: mal39
+
+conda create --name mal39 python=3.9
+
+
+https://www.freecodecamp.org/news/connect-python-with-sql/
+
+conda activate mal39
+pip install mysql-connector-python
+pip install pandas
+
+
+
+conda activate mal39
+pip install -U matplotlib
+
+conda activate mal39
+pip install dill
+
+conda activate mal39
+pip install requests
+
+conda activate mal39
+pip install pymysql
+
+
+
+
+more about pyCharm updates:
+sudo apt install --reinstall gcc
+
+
+
+
+conda activate mal39
+
+
+pip install tensorflow
+
+
+
+
+switched to microsoft code due to pycharm multi-threading debuging issues
+
+(for github)
+sudo apt-get install git
+
+git config --global user.name MALaffin
+git config --global user.email mattlaffin@hotmail.com

@@ -1,0 +1,48 @@
+https://www.freecodecamp.org/news/connect-python-with-sql/
+
+
+https://www.youtube.com/watch?v=0o0tSaVQfV4
+
+sudo apt-get update
+sudo apt-get install mysql-server
+
+
+
+did not work:sudo apt-get install mysql-workbench
+MySQL Workbench from ubuntu software
+
+
+https://stackoverflow.com/questions/39281594/error-1698-28000-access-denied-for-user-rootlocalhost
+
+option 2:
+CREATE USER 'mal'@'localhost' IDENTIFIED BY 'mal';
+GRANT ALL PRIVILEGES ON *.* TO 'mal'@'localhost';
+UPDATE user SET plugin='auth_socket' WHERE User='mal';
+FLUSH PRIVILEGES;
+exit;
+
+ALTER USER 'mal'@'localhost' IDENTIFIED BY 'sql';
+
+https://www.digitalocean.com/community/tutorials/how-to-create-a-new-user-and-grant-permissions-in-mysql
+ALTER USER 'mal'@'localhost' IDENTIFIED WITH mysql_native_password BY 'sql';
+GRANT ALL PRIVILEGES ON *.* TO 'mal'@'localhost';
+
+wipe the binary logs with:
+FLUSH LOGS;
+RESET MASTER;
+
+Added to etc/mysql/my.cnf
+"
+[mysqld]
+skip-log-bin
+"
+did not work
+
+trying:
+[mysqld]
+disable_log_bin 
+with a restart next...may have just needed a service restart, but seems to skip those long logs now...also MUCH faster... 
+not sure on purpose of bin lofs...may need to make manual backups;
+
+
+
