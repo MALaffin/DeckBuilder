@@ -25,6 +25,8 @@ if __name__ == '__main__':
     resetModel = resetInputs  # True #
     resetTrainedSynergy = resetModel  # True #
     numCards = None # 250 #  -1  # -4 # -3  # 
+    simWeight=0.4
+    runTrain=False
     IconicSize = 200
     BasisSize = 125
     fine = False
@@ -35,11 +37,6 @@ if __name__ == '__main__':
     elapsed1 = time() - t
     print(f"DB time: {elapsed1} s")
 
-    fname = label + str(numCards) + str(fine) + '.pkl'
-    backupLoc = '/media/VMShare/SQLTest.' + fname
-    backupLoc0 = '/dev/shm/SQLTest.' + fname
-    if exists(backupLoc):
-        shutil.copyfile(backupLoc, backupLoc0)
     if numCards:
         if numCards == -1:
             names = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch'
@@ -115,20 +112,63 @@ if __name__ == '__main__':
         tmp = list(set(texts))
         print('post parse words ' + str(len(tmp)))
 
+    fname = label + str(numCards) + str(fine) + '.pkl'
+    backupLoc = '/media/VMShare/SQLTest.' + fname
+    backupLoc0 = '/dev/shm/SQLTest.' + fname
+    if exists(backupLoc):
+        shutil.copyfile(backupLoc, backupLoc0)
     if not resetSynergy and exists(backupLoc0):
-        # synergy = dill.load_session(backupLoc0)
+        #ideally this should be done after synergy2 
         with open(backupLoc0, 'rb') as file:
-            synergy = dill.load(file)
+            synergy1 = dill.load(file)
     else:
         t = time()
         cards.fine = fine
-        synergy = cards.synergy3()
+        cards.simWeight = 0
+        synergy1 = cards.synergy3()
         elapsed2 = time() - t
         full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
         print(f"synergy for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
         with open(backupLoc, "wb") as f:
-            dill.dump(synergy, f)
+            dill.dump(synergy1, f)
+        gc.collect()
 
+    fname = label + str(numCards) + str(fine) + '.Similarity.pkl'
+    backupLoc = '/media/VMShare/SQLTest.' + fname
+    backupLoc0 = '/dev/shm/SQLTest.' + fname
+    if exists(backupLoc):
+        shutil.copyfile(backupLoc, backupLoc0)
+    if not resetSynergy and exists(backupLoc0):
+        with open(backupLoc0, 'rb') as file:
+            synergy2 = dill.load(file)
+    else:
+        t = time()
+        cards.fine = fine
+        cards.simWeight = 1
+        synergy2 = cards.synergy3()
+        elapsed2 = time() - t
+        full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
+        print(f"synergy for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
+        with open(backupLoc, "wb") as f:
+            dill.dump(synergy2, f)
+        gc.collect()
+
+
+    fname = label + str(numCards) + str(fine) + '.Weighted'+str(simWeight)+'.pkl'
+    backupLoc = '/media/VMShare/SQLTest.' + fname
+    backupLoc0 = '/dev/shm/SQLTest.' + fname
+    if exists(backupLoc):
+        shutil.copyfile(backupLoc, backupLoc0)
+    if not resetSynergy and exists(backupLoc0):
+        with open(backupLoc0, 'rb') as file:
+            synergy = dill.load(file)
+    else:
+        synergy=(1-2*simWeight)*synergy1+2*simWeight*synergy2
+        with open(backupLoc, "wb") as f:
+            dill.dump(synergy, f)
+        gc.collect()
+    del synergy1 
+    del synergy2
     gc.collect()
 
     showSynergy = False
@@ -184,138 +224,139 @@ if __name__ == '__main__':
     #         #     c0 = c1
 
     # looking for a distance function... synergy as the base so I don't need to use Levenstein on raw text again
-    cardDist = np.corrcoef(synergy)  # np.cov(synergy)
-    np.nan_to_num(cardDist, copy=False, nan=0)
-    del synergy
-    showCov = False
-    if showCov:
-        fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
-        h = ax1.imshow(cardDist, extent=[.5, cardDist.shape[1] + .5, .5, cardDist.shape[0] + .5], aspect='auto')
-        plt.colorbar(h)
-        ax1.set_title('synergy_COV')
-        plt.tight_layout()
-        plt.show()
-
-    iconLoc = backupLoc.replace('.pkl',  '.is' + str(IconicSize)+'.pkl')
-    if not resetIcons and exists(iconLoc):
-        # synergy = dill.load_session(backupLoc0)
-        with open(iconLoc, 'rb') as file:
-            iconicCards = dill.load(file)
-    else:
-        iconicCards = findBasis3(cardDist, IconicSize)
-        with open(iconLoc, "wb") as f:
-            dill.dump(iconicCards, f)
-
-    showIcons = False  # len(iconicCards) <= 32
-    if showIcons:
-        showCards = []
-        for loc in iconicCards:
-            if cards.internalSet[loc].multiverseid:
-                if cards.internalSet[loc].multiverseid == '0':
-                    print('invalid id' + cards.internalSet[loc].name)
-                showCards = [cards.internalSet[loc].multiverseid]
-                print(cards.internalSet[loc].name)
-            else:
-                print('can''t find ' + cards.internalSet[loc].name)
-            # if len(showCards)>1:
-            imageCombo(showCards)
-            plt.show(block=True)
-
-    inputsLoc = iconLoc.replace('.pkl', '.CD'+str(BasisSize)+'inputs.pkl')
-    if not resetInputs and exists(inputsLoc):
-        with open(inputsLoc, 'rb') as file:
-            items = dill.load(file)
-        X = items['X']
-        V = items['V']
-        combos = items['combos']
-        iconicCards = items['iconicCards']
-        cardDesciptions = items['cardDesciptions']
-        BasisCards = items['BasisCards']
-    else:
-        iconicCards = iconicCards[0:BasisSize]
-        BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
-        if exists(backupLoc):
-            shutil.copyfile(backupLoc, backupLoc0)
-        with open(backupLoc0, 'rb') as file:
-            synergy = dill.load(file)
-        cardDesciptions = synergy[iconicCards, :]
+    if runTrain:
+        cardDist = np.corrcoef(synergy)  # np.cov(synergy)
+        np.nan_to_num(cardDist, copy=False, nan=0)
         del synergy
+        showCov = False
+        if showCov:
+            fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
+            h = ax1.imshow(cardDist, extent=[.5, cardDist.shape[1] + .5, .5, cardDist.shape[0] + .5], aspect='auto')
+            plt.colorbar(h)
+            ax1.set_title('synergy_COV')
+            plt.tight_layout()
+            plt.show()
 
-        #combos = getKnownCombos(genPairs=True, addGarbage=True)
-        combos = getKnownCombosAndDeck(genPairs=True, addGarbage=True)
-        icons = len(iconicCards)
-        icons2 = icons * 2
-        X = np.zeros([2 * len(combos), icons2])
-        V = np.zeros([2 * len(combos), 1])
-        scale=0.125
-        for c in range(len(combos)):
-            if c % 10000 == 0:
-                print('making model loop ' + str(c) + ' of ' + str(len(combos)))
-            comboInds = cards.findCards(combos[c][1])
-            X[c, 0:icons] = cardDesciptions[:, comboInds[0]]
-            X[c, icons:icons2] = cardDesciptions[:, comboInds[1]]
-            V[c, 0] = combos[c][0] ** scale
-            X[c + len(combos), 0:icons] = cardDesciptions[:, comboInds[1]]
-            X[c + len(combos), icons:icons2] = cardDesciptions[:, comboInds[0]]
-            V[c + len(combos), 0] = combos[c][0] ** scale
-        items = dict()
-        items['X'] = X
-        items['V'] = V
-        items['combos'] = combos
-        items['iconicCards'] = iconicCards
-        items['cardDesciptions'] = cardDesciptions
-        items['BasisCards'] = BasisCards
-        with open(inputsLoc, "wb") as f:
-            dill.dump(items, f)
+        iconLoc = backupLoc.replace('.pkl',  '.is' + str(IconicSize)+'.pkl')
+        if not resetIcons and exists(iconLoc):
+            # synergy = dill.load_session(backupLoc0)
+            with open(iconLoc, 'rb') as file:
+                iconicCards = dill.load(file)
+        else:
+            iconicCards = findBasis3(cardDist, IconicSize)
+            with open(iconLoc, "wb") as f:
+                dill.dump(iconicCards, f)
 
-    TrainedSynergyLoc = inputsLoc.replace('.pkl', '.TrainedSynergy.pkl')
-    if not resetTrainedSynergy and exists(TrainedSynergyLoc):
-        # synergy = dill.load_session(backupLoc0)
-        with open(TrainedSynergyLoc, 'rb') as file:
-            synergyTrained = dill.load(file)
-    else:
-        icons = len(iconicCards)
-        icons2 = icons * 2
-        LS = LearnedSynergy([icons2, 1])
-        LS.trainModel(X, V)
-        N = len(cards.internalSet)
-        synergyTrained = np.zeros([N, N])
-        for x in range(N):
-            if x % round(N / 10) == 0:
-                print('using model loop ' + str(x) + ' of ' + str(N))
-            X2 = np.zeros([N, icons2])
-            for y in range(N):
-                X2[y, 0:icons] = cardDesciptions[:, x]
-                X2[y, icons:icons2] = cardDesciptions[:, y]
-            synergyTrained[x, :] = LS.useModel(X2)[:, 0]
-        with open(TrainedSynergyLoc, "wb") as f:
-            dill.dump(synergyTrained, f)
+        showIcons = False  # len(iconicCards) <= 32
+        if showIcons:
+            showCards = []
+            for loc in iconicCards:
+                if cards.internalSet[loc].multiverseid:
+                    if cards.internalSet[loc].multiverseid == '0':
+                        print('invalid id' + cards.internalSet[loc].name)
+                    showCards = [cards.internalSet[loc].multiverseid]
+                    print(cards.internalSet[loc].name)
+                else:
+                    print('can''t find ' + cards.internalSet[loc].name)
+                # if len(showCards)>1:
+                imageCombo(showCards)
+                plt.show(block=True)
 
-    showSynergyTrained = False
-    if showSynergyTrained:
-        fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
-        h = ax1.imshow(synergyTrained, extent=[.5, synergyTrained.shape[1] + .5, .5, synergyTrained.shape[0] + .5],
-                       # vmin=-.001,
-                       # vmax=1.001,
-                       aspect='auto')
-        plt.colorbar(h)
-        ax1.set_title('synergy ' + str(np.mean(np.mean(synergyTrained))))
-        plt.tight_layout()
-        plt.show()
-        synergyTrained = synergyTrained.transpose()
-        fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
-        h = ax1.imshow(synergyTrained, extent=[.5, synergyTrained.shape[1] + .5, .5, synergyTrained.shape[0] + .5],
-                       vmin=-1.001,
-                       vmax=.001,
-                       aspect='auto')
-        plt.colorbar(h)
-        ax1.set_title('synergy mean:' + str(np.mean(np.mean(synergyTrained)))
-                            + ' max: ' + str(np.max(np.max(synergy))))
-        plt.tight_layout()
-        plt.show()
-        #plt.pause(0.5)
+        inputsLoc = iconLoc.replace('.pkl', '.CD'+str(BasisSize)+'inputs.pkl')
+        if not resetInputs and exists(inputsLoc):
+            with open(inputsLoc, 'rb') as file:
+                items = dill.load(file)
+            X = items['X']
+            V = items['V']
+            combos = items['combos']
+            iconicCards = items['iconicCards']
+            cardDesciptions = items['cardDesciptions']
+            BasisCards = items['BasisCards']
+        else:
+            iconicCards = iconicCards[0:BasisSize]
+            BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
+            if exists(backupLoc):
+                shutil.copyfile(backupLoc, backupLoc0)
+            with open(backupLoc0, 'rb') as file:
+                synergy = dill.load(file)
+            cardDesciptions = synergy[iconicCards, :]
+            del synergy
 
-    synergy = synergyTrained + synergyTrained.transpose()
+            #combos = getKnownCombos(genPairs=True, addGarbage=True)
+            combos = getKnownCombosAndDeck(genPairs=True, addGarbage=True)
+            icons = len(iconicCards)
+            icons2 = icons * 2
+            X = np.zeros([2 * len(combos), icons2])
+            V = np.zeros([2 * len(combos), 1])
+            scale=0.125
+            for c in range(len(combos)):
+                if c % 10000 == 0:
+                    print('making model loop ' + str(c) + ' of ' + str(len(combos)))
+                comboInds = cards.findCards(combos[c][1])
+                X[c, 0:icons] = cardDesciptions[:, comboInds[0]]
+                X[c, icons:icons2] = cardDesciptions[:, comboInds[1]]
+                V[c, 0] = combos[c][0] ** scale
+                X[c + len(combos), 0:icons] = cardDesciptions[:, comboInds[1]]
+                X[c + len(combos), icons:icons2] = cardDesciptions[:, comboInds[0]]
+                V[c + len(combos), 0] = combos[c][0] ** scale
+            items = dict()
+            items['X'] = X
+            items['V'] = V
+            items['combos'] = combos
+            items['iconicCards'] = iconicCards
+            items['cardDesciptions'] = cardDesciptions
+            items['BasisCards'] = BasisCards
+            with open(inputsLoc, "wb") as f:
+                dill.dump(items, f)
+
+        TrainedSynergyLoc = inputsLoc.replace('.pkl', '.TrainedSynergy.pkl')
+        if not resetTrainedSynergy and exists(TrainedSynergyLoc):
+            # synergy = dill.load_session(backupLoc0)
+            with open(TrainedSynergyLoc, 'rb') as file:
+                synergyTrained = dill.load(file)
+        else:
+            icons = len(iconicCards)
+            icons2 = icons * 2
+            LS = LearnedSynergy([icons2, 1])
+            LS.trainModel(X, V)
+            N = len(cards.internalSet)
+            synergyTrained = np.zeros([N, N])
+            for x in range(N):
+                if x % round(N / 10) == 0:
+                    print('using model loop ' + str(x) + ' of ' + str(N))
+                X2 = np.zeros([N, icons2])
+                for y in range(N):
+                    X2[y, 0:icons] = cardDesciptions[:, x]
+                    X2[y, icons:icons2] = cardDesciptions[:, y]
+                synergyTrained[x, :] = LS.useModel(X2)[:, 0]
+            with open(TrainedSynergyLoc, "wb") as f:
+                dill.dump(synergyTrained, f)
+
+        showSynergyTrained = False
+        if showSynergyTrained:
+            fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
+            h = ax1.imshow(synergyTrained, extent=[.5, synergyTrained.shape[1] + .5, .5, synergyTrained.shape[0] + .5],
+                        # vmin=-.001,
+                        # vmax=1.001,
+                        aspect='auto')
+            plt.colorbar(h)
+            ax1.set_title('synergy ' + str(np.mean(np.mean(synergyTrained))))
+            plt.tight_layout()
+            plt.show()
+            synergyTrained = synergyTrained.transpose()
+            fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
+            h = ax1.imshow(synergyTrained, extent=[.5, synergyTrained.shape[1] + .5, .5, synergyTrained.shape[0] + .5],
+                        vmin=-1.001,
+                        vmax=.001,
+                        aspect='auto')
+            plt.colorbar(h)
+            ax1.set_title('synergy mean:' + str(np.mean(np.mean(synergyTrained)))
+                                + ' max: ' + str(np.max(np.max(synergy))))
+            plt.tight_layout()
+            plt.show()
+            #plt.pause(0.5)
+
+        synergy = synergyTrained + synergyTrained.transpose()
     
     showSynergy = False
     if showSynergy:
@@ -331,14 +372,15 @@ if __name__ == '__main__':
         , 'Morophon, the Boundless'
         , 'Reaper King'
         , 'Niv-Mizzet Reborn'
-        , 'Inferno of the Star Mounts'
-        , 'Lathliss, Dragon Queen'
         , 'O-Kagachi, Vengeful Kami'
         , 'Ramos, Dragon Engine'
         , 'Scion of the Ur-Dragon'
         , 'The Ur-Dragon'
         , 'Kyodai, Soul of Kamigawa'
         , 'Tiamat'
+        , 'Gadrak, the Crown-Scourge'
+        , 'Inferno of the Star Mounts'
+        , 'Lathliss, Dragon Queen'
         ]
     commanderIndexes = cards.findCards(commanders)
     commanderPoolsByIdentity=cards.CardPoolByCommander(commanders)

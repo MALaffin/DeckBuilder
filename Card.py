@@ -314,16 +314,17 @@ class Card:
         d = scale * v0[n]
         return d
 
-    def synergy(self, card, fine=False, showTable=False, printInfo=False):
+    def synergy(self, card:'Card', sim = 0.0, fine=False, showTable=False, printInfo=False):
         bestCost = float('inf')
         tmp = np.zeros([len(self.Triggers), len(card.Events)])
-        meanCost = 0
-        sim = 0.0
+        meanCost = 0        
         syn = 1 - sim * 2
         for t in range(len(self.Triggers)):
             for e in range(len(card.Events)):
-                cost = syn * Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
-                if sim > 0:
+                cost = 0
+                if syn != 0:
+                    cost = cost + syn * Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
+                if sim != 0:
                     cost = cost + \
                            + sim * Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
                            + sim * Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
