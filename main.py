@@ -30,7 +30,7 @@ if __name__ == '__main__':
     IconicSize = 200
     BasisSize = 125
     fine = False
-    label = '5.'
+    label = '7.'
 
     t = time()
     MtgDbHelper.initDb(resetDB)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     else:
         t = time()
         cards.fine = fine
-        cards.simWeight = 0
+        cards.synNotSim = True
         synergy1 = cards.synergy3()
         elapsed2 = time() - t
         full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     else:
         t = time()
         cards.fine = fine
-        cards.simWeight = 1
+        cards.synNotSim = False
         synergy2 = cards.synergy3()
         elapsed2 = time() - t
         full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60

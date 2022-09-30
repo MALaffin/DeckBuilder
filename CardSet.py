@@ -67,7 +67,7 @@ class CardSet:
             print(f"{r} {synergy[0][r]} {elapsed} s")
         return synergy
 
-    simWeight =0.0
+    synNotSim =True
     fine = False
     showTable = False
     printInfo = False
@@ -81,7 +81,7 @@ class CardSet:
         for c in range(N):
             cardC = self.internalSet[c]
             # t = time()
-            synergy[c, 0] = cardR.synergy(cardC, sim = self.simWeight, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
+            synergy[c, 0] = cardR.synergy(cardC, syn = self.synNotSim, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
             # elapsed = time() - t
             # print(f"{r} {c} {d[c][r]} {elapsed} s")
         elapsed = time() - t

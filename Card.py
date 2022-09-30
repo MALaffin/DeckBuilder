@@ -35,7 +35,7 @@ class Card:
         #    castText=castText.replace('{'+str(m)+'}', '')
         #creature somethings can attack
         if isCreature:
-            castText = castText + 'unblock : damage \n' + 'attack : damage \n'
+            castText = castText + 'attack unblock : damage \n' #merged conditions despite it hurting synergy measures
         
         # keep high information words
         text = self.convertManaCosts(self.text)
@@ -56,7 +56,8 @@ class Card:
             .replace('combat', 'attack') \
             .replace('is every creature type', 'changeling') \
             .replace('sacrifice', 'graveyard') \
-            .replace('targets', 'target')
+            .replace('targets', 'target') \
+            .replace('/', ' ')
         types = ['creature', 'artifact', 'land', 'planeswalker', 'instant', 'sorcery', 'enchantment'
             , 'white', 'blue', 'black', 'red', 'green'] #todo consider devoid
         for t in types:
@@ -64,12 +65,13 @@ class Card:
         punctuation = [' ', ':', ',', '\n']
         keyGameWords = ['untap', 'upkeep', 'draw', 'attack', 'endofturn'
                            , 'when', 'sacrifice', 'graveyard', 'return', 'hand', 'library'
-                           , 'battlefield', '+1/+1', 'gets', '+1/+0', 'exile'
+                           , 'gets', '+2', '+1', '+0', '-1', 'X'
+                           , 'battlefield', 'exile'
                            , 'target', 'counter', 'token'
                            , 'prevent', 'damage', 'lose', 'life'
                            , 'search', 'thisturn', 'all', 'cast', 'spell', 'main', 'player', 'opponent'
-                           , 'manaOfAnyType', 'could', 'unblock'
-                           , 'cancel'
+                           , 'could', 'unblock'
+                           , 'cancel', 'static'
                            , 'changeling'
                         ] + punctuation + types + self.getManaKeywords()
         withMana = castText + text
@@ -102,8 +104,9 @@ class Card:
                 trigger = triggered[0]
                 event = triggered[1]
             else:
-                trigger = ''
+                trigger = 'static' #want something for weighted matching
                 event = block
+            #consider error checking here for empty trigger/event
             trigger=self.parseManaForTrigger(trigger)
             event=self.parseManaForEvent(event)
             trigger = trigger.replace(',', '')
@@ -314,22 +317,19 @@ class Card:
         d = scale * v0[n]
         return d
 
-    def synergy(self, card:'Card', sim = 0.0, fine=False, showTable=False, printInfo=False):
+    def synergy(self, card:'Card', syn = True, fine=False, showTable=False, printInfo=False):
         bestCost = float('inf')
         tmp = np.zeros([len(self.Triggers), len(card.Events)])
         meanCost = 0        
-        syn = 1 - sim * 2
         for t in range(len(self.Triggers)):
             for e in range(len(card.Events)):
-                cost = 0
-                if syn != 0:
-                    cost = cost + syn * Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
-                if sim != 0:
-                    cost = cost + \
-                           + sim * Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
-                           + sim * Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
-                bestCost = min(bestCost, cost)
-                meanCost = meanCost + cost
+                if syn :
+                    cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
+                    bestCost = min(bestCost, cost)
+                else:
+                    cost =  0.5 * Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
+                           + 0.5 * Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
+                    meanCost = meanCost + cost
                 tmp[t, e] = cost
                 if np.isnan(cost):
                     print(self.name + ' error with ' + card.name)
@@ -364,7 +364,10 @@ class Card:
                         Card.__LevenshteinDistance1(self.Events[y], card.Triggers[x], fine, True, 1, 1)
             plt.connect('button_press_event', on_click)
             plt.show()
-        return -bestCost
+        if syn :
+            return -bestCost
+        else : #many cards are already creatures with similar casting costs... this will emphasize similar abilities
+            return -meanCost
 
     def ColorID(self):
         if self.manacost :
