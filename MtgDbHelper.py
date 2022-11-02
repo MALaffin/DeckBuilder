@@ -13,7 +13,7 @@ class MtgDbHelper:
     @classmethod
     def __MakeFull(cls):
         data_url = 'https://mtgjson.com/api/v5/AllPrintings.json'
-        file = '/media/VMShare/AllPrintings20220823.json'
+        file = '/media/VMShare/AllPrintings20221101.json'
         setupDB(data_url,file,cls.dbName)        
 
     @classmethod

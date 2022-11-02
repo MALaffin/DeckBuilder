@@ -69,4 +69,4 @@ git config --global user.name MALaffin
 git config --global user.email mattlaffin@hotmail.com
 
 vs code:
-use the setting "Python: Default Interpreter Path" to select mal39
+File->Preferences->settings and search for "Python: Default Interpreter Path" to select mal39

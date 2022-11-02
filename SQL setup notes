@@ -27,22 +27,23 @@ https://www.digitalocean.com/community/tutorials/how-to-create-a-new-user-and-gr
 ALTER USER 'mal'@'localhost' IDENTIFIED WITH mysql_native_password BY 'sql';
 GRANT ALL PRIVILEGES ON *.* TO 'mal'@'localhost';
 
-wipe the binary logs with:
-FLUSH LOGS;
-RESET MASTER;
-
-Added to etc/mysql/my.cnf
-"
-[mysqld]
-skip-log-bin
-"
-did not work
-
-trying:
-[mysqld]
-disable_log_bin 
-with a restart next...may have just needed a service restart, but seems to skip those long logs now...also MUCH faster... 
-not sure on purpose of bin lofs...may need to make manual backups;
+... not sure what this was for...
+...wipe the binary logs with:
+...FLUSH LOGS;
+...RESET MASTER;
+...
+...Added to etc/mysql/my.cnf
+..."
+...[mysqld]
+...skip-log-bin
+..."
+...did not work
+...
+...trying:
+...[mysqld]
+...disable_log_bin 
+...with a restart next...may have just needed a service restart, but seems to skip those long logs now...also MUCH faster... 
+...not sure on purpose of bin lofs...may need to make manual backups;
 
 
 

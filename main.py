@@ -24,7 +24,7 @@ if __name__ == '__main__':
     resetInputs = resetIcons  # True #
     resetModel = resetInputs  # True #
     resetTrainedSynergy = resetModel  # True #
-    numCards = None # 250 #  -1  # -4 # -3  # 
+    numCards = -1  #None # 250 #   -4 # -3  # 
     simWeight=0.4
     runTrain=False
     IconicSize = 200

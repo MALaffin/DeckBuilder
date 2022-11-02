@@ -3,12 +3,15 @@ import requests
 import numpy as np
 from matplotlib import image
 from os.path import exists
+from os import makedirs
 
 
 def getImageByMultiverseId(multiverseid):
     image_url = 'https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=' + multiverseid + '&type=card'
-    imLoc = '/media/VMShare/Images/' + multiverseid + '.jpg'
-
+    imDir='/media/VMShare/Images/';
+    if not exists(imDir):
+        makedirs(imDir)
+    imLoc = imDir + multiverseid + '.jpg'
     if not exists(imLoc):
         req = requests.get(image_url,verify=False).content
         with open(imLoc, 'wb') as handler:
