@@ -51,21 +51,16 @@ pip install pymysql
 
 
 
-more about pyCharm updates:
-sudo apt install --reinstall gcc
-
-
+...more about pyCharm updates:
+...sudo apt install --reinstall gcc
+...who cares I'm in code now...
+switched to microsoft code due to pycharm multi-threading debuging issues
 
 
 conda activate mal39
 
 
 pip install tensorflow
-
-
-
-
-switched to microsoft code due to pycharm multi-threading debuging issues
 
 (for github)
 sudo apt-get install git
