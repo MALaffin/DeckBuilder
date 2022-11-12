@@ -43,6 +43,7 @@ class CardProjectViewer:
         # txt.insert(END," text")
         
         self.dims=[]
+        self.dimsInds=[]
         #select X
         self.dimX = ttk.Combobox(self.mainWindow)
         self.dimX.place(relx=0.7, rely=0.65,relwidth=0.2, relheight=0.05)
@@ -53,9 +54,7 @@ class CardProjectViewer:
         self.dimsVarY=None
 
         fig=Figure()
-        plt1 = fig.add_subplot(111)
-        plt1.plot([0, 1, 2, 3],[1, 2, 4, 16])
-        plt1.set_title("test3")
+        self.plt1 = fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(fig,master = self.mainWindow)  
         self.canvas.get_tk_widget().place(relx=0.40, rely=0.05,relwidth=0.45, relheight=0.45)
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.mainWindow, pack_toolbar=False)
@@ -103,6 +102,38 @@ class CardProjectViewer:
 
         self.card2.itemconfig(self.cardIm2, image=self.imTk2)
 
+    def updateScatter(self):
+        
+        dimX=self.dimX.current()
+        if dimX < 0:
+            return
+        dimY=self.dimY.current()
+        if dimY < 0:
+            return
+
+        cardX=self.CP.cards.internalSet[int(self.dimsInds[dimX])]
+        cardY=self.CP.cards.internalSet[int(self.dimsInds[dimY])]
+        self.plt1.cla()
+        dn=self.decks.curselection()
+        if len(dn) != 0:
+            SelectedDeck=self.CP.updatedBelonging[dn[0]-1]
+            X3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimX])]
+            Y3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimY])]
+            self.plt1.plot(X3,Y3,color=(1,0,0),marker='o',linestyle = 'None')
+        AllDecks=[]
+        for d in self.CP.updatedBelonging:
+            if len(d)>0:
+                AllDecks=AllDecks+d
+        X2=self.CP.CardMatch[AllDecks,int(self.dimsInds[dimX])]
+        Y2=self.CP.CardMatch[AllDecks,int(self.dimsInds[dimY])]
+        self.plt1.plot(X2,Y2,color=(0,1,0),marker='.',linestyle = 'None')
+        X1=self.CP.CardMatch[:,int(self.dimsInds[dimX])]
+        Y1=self.CP.CardMatch[:,int(self.dimsInds[dimY])]
+        self.plt1.plot(X1,Y1,color=(0,0,0),marker=',',linestyle = 'None')
+        self.plt1.set_title("test3")
+        self.plt1.set_xlabel(cardX.name)
+        self.plt1.set_ylabel(cardY.name)
+        self.canvas.draw()
 
     def SetupCardProject(self):
         self.button.config(state=DISABLED) #while running disable it
@@ -122,20 +153,27 @@ class CardProjectViewer:
         
         def deckCallback(event):
             self.updateCards()
+            self.updateScatter()
         self.decks.bind("<<ListboxSelect>>", deckCallback)
 
         def cardCallback(event):
             self.updateCard()
         self.cards.bind("<<ListboxSelect>>", cardCallback)
         
+        def updateCallback(event):
+            self.updateScatter()
+        for names in self.CP.deckSeeds:
+            self.dims.append(names[0])
+            inds=self.CP.cards.findCards(names)
+            self.dimsInds.append(inds[0])
         for BI in self.CP.BasisIndexes:
-            self.dims.append(str(BI))
+            self.dimsInds.append(BI)
+            card=self.CP.cards.internalSet[BI]
+            self.dims.append(card.name)
         self.dimX['values']=self.dims
         self.dimY['values']=self.dims
-        # self.dimsVarX = StringVar(self.dims)
-        # self.dimsVarX.set(self.dims[0]) # default value
-        # self.dimsVarY = StringVar(self.dims)
-        # self.dimsVarY.set(self.dims[0]) # default value
+        self.dimX.bind("<<ComboboxSelected>>", updateCallback)
+        self.dimY.bind("<<ComboboxSelected>>", updateCallback)
         
         
 

@@ -193,6 +193,7 @@ class CardProject:
         if not resetRawCardMatch and exists(backupLoc0):
             with open(backupLoc0, 'rb') as file:
                 rawCardMatch = dill.load(file)
+                file.close()
         else:        
             fname= fname0+ '.Synergy.pkl'
             backupLoc = self.baseLocation+fname
@@ -203,6 +204,7 @@ class CardProject:
                 #ideally this should be done after similarity 
                 with open(backupLoc0, 'rb') as file:
                     synergy = dill.load(file)
+                    file.close()
             else:
                 t = time()
                 cards.fine = self.fine
@@ -214,6 +216,7 @@ class CardProject:
                 print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
                 with open(backupLoc, "wb") as f:
                     dill.dump(synergy, f)
+                    f.close()
                 gc.collect()
 
             
@@ -225,6 +228,7 @@ class CardProject:
             if not resetRawCardMatch and exists(backupLoc0):
                 with open(backupLoc0, 'rb') as file:
                     similarity = dill.load(file)
+                    file.close()
             else:
                 t = time()
                 cards.fine = self.fine
@@ -235,11 +239,13 @@ class CardProject:
                 print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
                 with open(backupLoc, "wb") as f:
                     dill.dump(similarity, f)
+                    f.close()
                 gc.collect()
 
             rawCardMatch=(1-self.simWeight)*synergy+self.simWeight*similarity
             with open(backupLoc, "wb") as f:
                 dill.dump(rawCardMatch, f)
+                f.close()
             
             del synergy 
             del similarity
@@ -274,10 +280,12 @@ class CardProject:
                 # rawCardMatch = dill.load_session(backupLoc0)
                 with open(TrainedCardMatchLoc, 'rb') as file:
                     trainedCardMatch = dill.load(file)
+                    file.close()
             else:
                 if not self.resetInputs and exists(inputsLoc):
                     with open(inputsLoc, 'rb') as file:
                         items = dill.load(file)
+                        file.close()
                     X = items['X']
                     V = items['V']
                     combos = items['combos']
@@ -289,6 +297,7 @@ class CardProject:
                     if not self.resetIcons and exists(iconLoc):
                         with open(iconLoc, 'rb') as file:
                             iconicCards = dill.load(file)
+                            file.close()
                     else:
 
                         cardDist = np.corrcoef(rawCardMatch)  # np.cov(rawCardMatch)
@@ -297,6 +306,7 @@ class CardProject:
                         iconicCards = findBasis3(cardDist, self.IconicSize)
                         with open(iconLoc, "wb") as f:
                             dill.dump(iconicCards, f)
+                            f.close()
 
                     iconicCards = iconicCards[0:self.BasisSize]
                     BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
@@ -304,6 +314,7 @@ class CardProject:
                         shutil.copyfile(backupLoc, backupLoc0)
                     with open(backupLoc0, 'rb') as file:
                         rawCardMatch = dill.load(file)
+                        file.close()
                     cardDesciptions = rawCardMatch[iconicCards, :]
                     del rawCardMatch
 
@@ -333,6 +344,7 @@ class CardProject:
                     items['BasisCards'] = BasisCards
                     with open(inputsLoc, "wb") as f:
                         dill.dump(items, f)
+                        f.close()
 
                     icons = len(iconicCards)
                     icons2 = icons * 2
@@ -350,6 +362,7 @@ class CardProject:
                         trainedCardMatch[x, :] = LS.useModel(X2)[:, 0]
                     with open(TrainedCardMatchLoc, "wb") as f:
                         dill.dump(trainedCardMatch, f)
+                        f.close()
 
             cardMatch = trainedCardMatch + trainedCardMatch.transpose()
             del trainedCardMatch
@@ -357,6 +370,7 @@ class CardProject:
 
         with open(iconLoc, 'rb') as file:
             iconicCards = dill.load(file)
+            file.close()
 
         self.BasisIndexes=iconicCards[0:self.BasisSize]
 
