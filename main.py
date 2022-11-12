@@ -24,14 +24,16 @@ if __name__ == '__main__':
     resetInputs = resetIcons  # True #
     resetModel = resetInputs  # True #
     resetTrainedSynergy = resetModel  # True #
-    numCards = -1  #None # 250 #   -4 # -3  # 
-    simWeight=0.4
+    numCards = None # -1 # 250 #   -4 # -3  # 
+    simWeight=0.8
     runTrain=False
     IconicSize = 200
     BasisSize = 125
     fine = False
-    label = '7.'
+    label = '8.'
 
+    coresAllowed=7
+    
     t = time()
     MtgDbHelper.initDb(resetDB)
     elapsed1 = time() - t
@@ -49,8 +51,8 @@ if __name__ == '__main__':
             cards.showTable = False
             cards.printInfo = True
             for card in cards.internalSet:
-                card.ParseText(True)
                 print(card.name)
+                card.ParseText(True)
                 for e in range(len(card.Events)):
                     print(str(card.Triggers[e]) + ":" + str(card.Events[e]))
             resetSynergy=True
@@ -125,6 +127,7 @@ if __name__ == '__main__':
         t = time()
         cards.fine = fine
         cards.synNotSim = True
+        cards.mxPrcs = coresAllowed
         synergy1 = cards.synergy3()
         elapsed2 = time() - t
         full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
@@ -379,8 +382,8 @@ if __name__ == '__main__':
         , 'Kyodai, Soul of Kamigawa'
         , 'Tiamat'
         , 'Gadrak, the Crown-Scourge'
-        , 'Inferno of the Star Mounts'
         , 'Lathliss, Dragon Queen'
+        , 'Inferno of the Star Mounts'
         ]
     commanderIndexes = cards.findCards(commanders)
     commanderPoolsByIdentity=cards.CardPoolByCommander(commanders)

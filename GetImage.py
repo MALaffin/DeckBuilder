@@ -6,7 +6,7 @@ from os.path import exists
 from os import makedirs
 
 
-def getImageByMultiverseId(multiverseid):
+def getImageLocByMultiverseId(multiverseid):
     image_url = 'https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=' + multiverseid + '&type=card'
     imDir='/media/VMShare/Images/';
     if not exists(imDir):
@@ -16,9 +16,11 @@ def getImageByMultiverseId(multiverseid):
         req = requests.get(image_url,verify=False).content
         with open(imLoc, 'wb') as handler:
             handler.write(req)
+    return imLoc
 
+def getImageByMultiverseId(multiverseid):
+    imLoc = getImageLocByMultiverseId(multiverseid)
     img = image.imread(imLoc)
-
     return img
 
 

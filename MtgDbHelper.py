@@ -2,19 +2,28 @@ from SQLHelper import *
 from CardSet import *
 import subprocess
 from JasonToMysql import setupDB
-
-
-class MtgDbHelper:
+import shutil
+from datetime import datetime
+import os
+               
+class MtgDbHelper: #static class effectively an interface to mySQL
+    saveLocation = "/media/VMShare/"
     dbName = 'MTG_FULL4'
     subDbName = 'MTG_DragonFriendly'
     user = 'mal'
     pw = 'sql'
+    cards = None
 
     @classmethod
     def __MakeFull(cls):
         data_url = 'https://mtgjson.com/api/v5/AllPrintings.json'
-        file = '/media/VMShare/AllPrintings20221101.json'
-        setupDB(data_url,file,cls.dbName)        
+        file = MtgDbHelper.saveLocation+'AllPrintings.json'
+        os.remove(file) 
+        setupDB(data_url,file,cls.dbName)
+        #in case one becomes corrupted, make some backups
+        now = datetime.today().strftime('%Y%m%d')
+        fileDated = MtgDbHelper.saveLocation+'AllPrintings'+now+'.json'
+        shutil.copyfile(file, fileDated)
 
     @classmethod
     def __MakeSub(cls, reset=False):
@@ -180,7 +189,6 @@ class MtgDbHelper:
         MtgDbHelper.__MakeSub(reset)
         MtgDbHelper.__MakeCardSet()
 
-    cards = None
 
     @classmethod
     def reset(cls):

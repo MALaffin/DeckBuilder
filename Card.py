@@ -6,6 +6,15 @@ import numpy as np
 
 class Card:
 
+    def RemoveReminders(self,text):
+        text2=text
+        loc1=text.find("(")
+        while loc1>-1:
+            loc2=text2.find(")")
+            text2=text2[0:loc1] + text2[loc2+1:len(text2)]
+            loc1=text2.find("(")
+        return text2
+
     def ParseText(self, verbose=False):
         self.Triggers = []
         self.Events = []
@@ -25,12 +34,25 @@ class Card:
         if self.subtypes:
             allTypes = allTypes + ' ' + self.subtypes.lower()
         
+        MCnoRep=MC
+        lastsize=-1
+        while not lastsize == len(MCnoRep):
+            lastsize=len(MCnoRep)
+            MCnoRep = MCnoRep\
+                .replace("{w}{w}","{w}")\
+                .replace("{u}{u}","{u}")\
+                .replace("{b}{b}","{b}")\
+                .replace("{r}{r}","{r}")\
+                .replace("{g}{g}","{g}")\
+                .replace("{c}{c}","{c}")\
+                .replace("{1}{1}","{1}") 
+
         #Casting gets a something
-        castText = MC + ' : cast ' + castMod + allTypes \
-            + MC.replace('{w}', ' white ').replace('{u}', ' blue ') \
+        castText = MC + ' ' + allTypes + ' : cast ' + castMod + ' ' + allTypes \
+            + MCnoRep.replace('{w}', ' white ').replace('{u}', ' blue ') \
             .replace('{b}', ' black ').replace('{r}', ' red ')\
             .replace('{g}', ' green ').replace('{c}', ' colorless ') \
-            + '\n'
+            .replace('{1}', '')+ '\n'
         #for m in range(1,self.biggestMannaNumber):
         #    castText=castText.replace('{'+str(m)+'}', '')
         #creature somethings can attack
@@ -41,17 +63,22 @@ class Card:
         text = self.convertManaCosts(self.text)
         subNames = self.name.lower().split(' // ')
         for name in subNames:
-            text = text.replace(name, allTypes)
+            #text = text.replace(name, allTypes)
+            text = text.replace(name, "cardname")
+        
+        text=self.RemoveReminders(text)
+
         text = text.replace('end of turn', '') \
             .replace('this turn', 'thisturn') \
-            .replace(' turn', ' untap draw attack creature artifact land') \
+            .replace(' turn', ' \nuntap \ndraw \nattack \ncreature \nartifact \nland') \
             .replace('if ', 'when ') \
             .replace('proliferate ', 'counter ') \
-            .replace('\ni ', '\ncounter: ') \
-            .replace('\nii ', '\ncounter: ') \
-            .replace('\niii ', '\ncounter: ') \
-            .replace('\niv ', '\ncounter: ') \
+            .replace('\ni ', '\nturn counter: ') \
+            .replace('\nii ', '\nturn counter: ') \
+            .replace('\niii ', '\nturn counter: ') \
+            .replace('\niv ', '\nturn counter: ') \
             .replace('counter target', 'cancel') \
+            .replace('\n•', ' ') \
             .replace('{t}', 'untap') \
             .replace('combat', 'attack') \
             .replace('is every creature type', 'changeling') \
@@ -64,15 +91,16 @@ class Card:
             text.replace(t + 's', t)
         punctuation = [' ', ':', ',', '\n']
         keyGameWords = ['untap', 'upkeep', 'draw', 'attack', 'endofturn'
-                           , 'when', 'sacrifice', 'graveyard', 'return', 'hand', 'library'
+                           , 'when', 'sacrifice', 'graveyard', 'library'
                            , 'gets', '+2', '+1', '+0', '-1', 'X'
                            , 'battlefield', 'exile'
-                           , 'target', 'counter', 'token'
+                           ,'counter', 'token'
                            , 'prevent', 'damage', 'lose', 'life'
                            , 'search', 'thisturn', 'all', 'cast', 'spell', 'main', 'player', 'opponent'
                            , 'could', 'unblock'
-                           , 'cancel', 'static'
+                           , 'cancel', 'static', 'cardname'
                            , 'changeling'
+                           #,  'return', 'target', 'hand' cultivating this list is ... difficult
                         ] + punctuation + types + self.getManaKeywords()
         withMana = castText + text
         blocks = [withMana]  # [text]#
@@ -95,8 +123,12 @@ class Card:
                     continue
         blocks = text.split('\n')
         for block in blocks:
-            activated = block.split(':', 1)
-            triggered = block.split(',', 1)
+            if(block.find("when")): #activated
+                block2=block
+            else:
+                block2=block.replace(',','')
+            activated = block2.split(':', 1)
+            triggered = block2.split(',', 1)
             if len(activated) == 2:
                 trigger = activated[0]
                 event = activated[1]
@@ -114,7 +146,7 @@ class Card:
             # sacrifice adds to the events
             trigger = list(filter(None, trigger.split(' ')))
             trigger.sort()  # mtg does not seem to care too much about order target red creature vs if red target
-            event = event.replace('untap', '{t}')  # using untap(effect) and {t}(cost) as a synergy pair
+            #{t}->untap already... event = event.replace('untap', '{t}')  # using untap(effect) and {t}(cost) as a synergy pair
             #played right, triggers are events...
             repTrigger='graveyard' in trigger \
                     or 'counter' in trigger;
@@ -124,8 +156,13 @@ class Card:
             self.Events = self.Events + [event]
             if repTrigger:
                 self.Triggers = self.Triggers + [trigger]
-                self.Events = self.Events + [ ['repTrigger'] + trigger]
-
+                #self.Events = self.Events + [ ['repTrigger'] + trigger]
+                self.Events = self.Events + [trigger]
+        for type in allTypes.split(" "):
+            self.Triggers = self.Triggers + [['static']+[type]]
+            #self.Triggers = self.Triggers + [['static']]
+            #self.Triggers = self.Triggers + [ [type] ]
+            self.Events = self.Events + [ [type] ]  
         if verbose:
             print(str(self.Triggers))
             print(str(self.Events))
@@ -359,8 +396,9 @@ class Card:
                     x=max(0,min(x,len(card.Events)-1))
                     y=max(0,min(y,len(self.Triggers)-1))
                     #breakpoint()
-                    Card.__LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
-                    if sim > 0:
+                    if syn:
+                        Card.__LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
+                    else:
                         Card.__LevenshteinDistance1(self.Events[y], card.Triggers[x], fine, True, 1, 1)
             plt.connect('button_press_event', on_click)
             plt.show()

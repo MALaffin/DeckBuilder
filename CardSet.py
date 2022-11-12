@@ -13,6 +13,7 @@ class CardSet:
             self.internalSet = cards
         else:
             raise ValueError("invalid cards")
+        self.lastMessage="0%"
 
     def subsetByNames(self, names):
         cards = []
@@ -93,13 +94,18 @@ class CardSet:
         N = len(self.internalSet)
         synergy = np.zeros([N, N])
         total_error = 0
+        self.lastMessage="0%"
+        t0=time()
         print('starting batch of '+ str(N))
         with ProcessPoolExecutor(max_workers=self.mxPrcs) as pool:
             for res in pool.map(self.subSynergy3, range(N)):
                 synergy[:, res[1]] = res[0][:, 0]
                 if res[1] % 32 == 0:
                     gc.collect()
-                    print('gc row '+str(res[1]))
+                    ind=res[1]+1
+                    remainingTime=(time()-t0)/ind*(N-ind)
+                    self.lastMessage=str(res[1]/N*100) + "% remaining time =" +str(remainingTime/3600)+" hours"
+                    print('gc row '+str(res[1]) +' '+self.lastMessage)
         return synergy
 
     def subset(self, names):
