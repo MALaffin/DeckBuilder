@@ -266,16 +266,17 @@ class CardProject:
         
         # looking for a distance function... rawCardMatch as the base so I don't need to use Levenstein on raw text again
     
+        iconLoc = backupLoc.replace('.pkl',  '.IS' + str(self.IconicSize)+'.pkl')
+        inputsLoc = backupLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
+        TrainedCardMatchLoc = inputsLoc.replace('.pkl', '.TrainedCardMatch.pkl')
+        deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
+            
         if self.MatchType==0:
             cardMatch=rawCardMatch;
             del rawCardMatch
             deckBase=backupLoc.replace('.pkl','.Deck.')
         else:    
-            
-            iconLoc = backupLoc.replace('.pkl',  '.IS' + str(self.IconicSize)+'.pkl')
-            inputsLoc = backupLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
-            TrainedCardMatchLoc = inputsLoc.replace('.pkl', '.TrainedCardMatch.pkl')
-            deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
+           
             if not self.resetTrainedCardMatch and exists(TrainedCardMatchLoc):
                 # rawCardMatch = dill.load_session(backupLoc0)
                 with open(TrainedCardMatchLoc, 'rb') as file:
