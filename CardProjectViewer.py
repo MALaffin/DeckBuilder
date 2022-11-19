@@ -135,7 +135,7 @@ class CardProjectViewer:
         self.plt1.set_ylabel(cardY.name)
         self.canvas.draw()
 
-    def SetupCardProject(self):
+    def SetupCardProject(self): 
         self.button.config(state=DISABLED) #while running disable it
         names = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch'
             , 'Scion of the Ur-Dragon', 'Teneb, the Harvester'
@@ -143,7 +143,9 @@ class CardProjectViewer:
             , 'Lathliss, Dragon Queen']
         names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
         names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-        self.CP=CardProject(namedCards=None)
+        self.CP=CardProject(namedCards=None
+            ,MatchType = 1
+            ,fine = True)
         self.CP.createOrLoadData()
         self.button.config(state=ACTIVE) #while running disable it
 

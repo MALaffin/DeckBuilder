@@ -1,16 +1,43 @@
 from MtgDbHelper import MtgDbHelper
 from CardSet import CardSet
+from Card import Card
+import matplotlib.pyplot as plt
+import numpy as np
 
 helper=MtgDbHelper()
 helper.initDb(False)
-check1=CardSet(helper.cards.findCards2(name="Ancient",equalsNotLike=False))
-check2=check1.findCards2(name="Dragon",equalsNotLike=False)
-Core=helper.cards.get(True,False)
-CS=helper.cards.get(True,True)
-print("CORE:"+str(len(Core)+len(CS)))
-Symp=helper.cards.get(False,True)
-print("Sympathetic:"+str(len(Symp)))
-Util=helper.cards.get(False,False)
-print("Util:"+str(len(Util)))
-print("Sympathetic:"+str(len(Symp)))
-print("CORE:"+str(len(Core)+len(CS)))
+Card.ParseTextEnabled = False
+K=100
+words=dict()
+c=0
+cs=len(helper.cards.internalSet)
+for card in helper.cards.internalSet:
+    c=c+1
+    if c%32==0:
+        print(str(c)+' of '+str(cs))
+    noPunc=card.text \
+        .replace('\n•',' ') \
+        .replace('\n',' ') \
+        .replace('.',' ') \
+        .replace(',',' ') \
+        .lower()
+    parsed=noPunc.split(' ')
+    for word in parsed:
+        if word in words.keys():
+            words[word]=words[word]+1
+        else:
+            words[word]=1
+vals=np.array(list(words.values()))
+order = np.argsort(vals)
+vals.sort()
+vals=vals[::-1]
+fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
+plt.plot(np.log10(vals))
+ax1.set_title('word frequency')
+plt.show(block=False)
+names=list(words.keys())
+for ind in range(K):
+    element=order[len(names)-1-ind]
+    print(names[element])
+print(np.sum(vals))
+Card.ParseTextEnabled = True

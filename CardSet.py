@@ -102,9 +102,10 @@ class CardSet:
                 synergy[:, res[1]] = res[0][:, 0]
                 if res[1] % 32 == 0:
                     gc.collect()
-                    ind=res[1]+1
-                    remainingTime=(time()-t0)/ind*(N-ind)
-                    self.lastMessage=str(res[1]/N*100) + "% remaining time =" +str(remainingTime/3600)+" hours"
+                    ind=res[1]+1.0
+                    elapsedTime=(time()-t0)/3600
+                    remainingTime=elapsedTime/ind*(N-ind)
+                    self.lastMessage=str(ind/N*100) + "% time elapsed = "+str(elapsedTime)+"  remaining time =" +str(remainingTime)+" hours"
                     print('gc row '+str(res[1]) +' '+self.lastMessage)
         return synergy
 

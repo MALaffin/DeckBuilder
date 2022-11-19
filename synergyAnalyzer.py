@@ -269,7 +269,7 @@ def findBasis2(dist, basisSize, factor=.99):
         if len(basis) == basisSize:
             plt.show(block=True)
             return basis
-    plt.show(block=True)
+    plt.show(block=False)
     return basis
 
 

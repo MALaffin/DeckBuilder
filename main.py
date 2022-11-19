@@ -24,13 +24,13 @@ if __name__ == '__main__':
     resetInputs = resetIcons  # True #
     resetModel = resetInputs  # True #
     resetTrainedSynergy = resetModel  # True #
-    numCards = None # -1 # 250 #   -4 # -3  # 
-    simWeight=0.8
+    numCards = -1 # None # 250 #   -4 # -3  # 
+    simWeight=0.25
     runTrain=False
     IconicSize = 200
     BasisSize = 125
     fine = False
-    label = '8.'
+    label = '10.'
 
     coresAllowed=7
     
@@ -166,7 +166,7 @@ if __name__ == '__main__':
         with open(backupLoc0, 'rb') as file:
             synergy = dill.load(file)
     else:
-        synergy=(1-2*simWeight)*synergy1+2*simWeight*synergy2
+        synergy=(1-simWeight)*synergy1+simWeight*synergy2
         with open(backupLoc, "wb") as f:
             dill.dump(synergy, f)
         gc.collect()

@@ -25,11 +25,11 @@ class CardProject:
         ,resetTrainedCardMatch = None 
         ,namedCards = None 
         ,MatchType=1
-        ,simWeight=0.5 
+        ,simWeight=0.25 
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '9.' 
+        ,label = '10.' 
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -186,23 +186,23 @@ class CardProject:
         fname0 = 'CardInfo.' + self.label + str(numCards) + str(self.fine) 
         
         fname = fname0 + '.Weighted' + str(self.simWeight)+'.pkl'
-        backupLoc = self.baseLocation+ fname
-        backupLoc0 = self.ramLocation+ fname 
-        if exists(backupLoc):
-            shutil.copyfile(backupLoc, backupLoc0)
-        if not resetRawCardMatch and exists(backupLoc0):
-            with open(backupLoc0, 'rb') as file:
+        weightedLoc = self.baseLocation+ fname
+        weightedLoc0 = self.ramLocation+ fname 
+        if exists(weightedLoc):
+            shutil.copyfile(weightedLoc, weightedLoc0)
+        if not resetRawCardMatch and exists(weightedLoc0):
+            with open(weightedLoc0, 'rb') as file:
                 rawCardMatch = dill.load(file)
                 file.close()
         else:        
             fname= fname0+ '.Synergy.pkl'
-            backupLoc = self.baseLocation+fname
-            backupLoc0 = self.ramLocation+ fname
-            if exists(backupLoc):
-                shutil.copyfile(backupLoc, backupLoc0)
-            if not resetRawCardMatch and exists(backupLoc0):
+            synergyLoc = self.baseLocation+fname
+            synergyLoc0 = self.ramLocation+ fname
+            if exists(synergyLoc):
+                shutil.copyfile(synergyLoc, synergyLoc0)
+            if not resetRawCardMatch and exists(synergyLoc0):
                 #ideally this should be done after similarity 
-                with open(backupLoc0, 'rb') as file:
+                with open(synergyLoc0, 'rb') as file:
                     synergy = dill.load(file)
                     file.close()
             else:
@@ -214,19 +214,19 @@ class CardProject:
                 elapsed2 = time() - t
                 full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
                 print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
-                with open(backupLoc, "wb") as f:
+                with open(synergyLoc, "wb") as f:
                     dill.dump(synergy, f)
                     f.close()
                 gc.collect()
 
             
             fname= fname0 + '.Similarity.pkl'
-            backupLoc = self.baseLocation+ fname
-            backupLoc0 = self.ramLocation+ fname        
-            if exists(backupLoc):
-                shutil.copyfile(backupLoc, backupLoc0)
-            if not resetRawCardMatch and exists(backupLoc0):
-                with open(backupLoc0, 'rb') as file:
+            similarityLoc = self.baseLocation+ fname
+            similarityLoc0 = self.ramLocation+ fname        
+            if exists(similarityLoc):
+                shutil.copyfile(similarityLoc, similarityLoc0)
+            if not resetRawCardMatch and exists(similarityLoc0):
+                with open(similarityLoc0, 'rb') as file:
                     similarity = dill.load(file)
                     file.close()
             else:
@@ -237,13 +237,13 @@ class CardProject:
                 elapsed2 = time() - t
                 full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
                 print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
-                with open(backupLoc, "wb") as f:
+                with open(similarityLoc, "wb") as f:
                     dill.dump(similarity, f)
                     f.close()
                 gc.collect()
 
             rawCardMatch=(1-self.simWeight)*synergy+self.simWeight*similarity
-            with open(backupLoc, "wb") as f:
+            with open(weightedLoc, "wb") as f:
                 dill.dump(rawCardMatch, f)
                 f.close()
             
@@ -266,19 +266,18 @@ class CardProject:
         
         # looking for a distance function... rawCardMatch as the base so I don't need to use Levenstein on raw text again
     
-        iconLoc = backupLoc.replace('.pkl',  '.IS' + str(self.IconicSize)+'.pkl')
-        inputsLoc = backupLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
+        iconLoc = weightedLoc.replace('.pkl',  '.IS' + str(self.IconicSize)+'.pkl')
+        inputsLoc = weightedLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
         TrainedCardMatchLoc = inputsLoc.replace('.pkl', '.TrainedCardMatch.pkl')
         deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
             
         if self.MatchType==0:
             cardMatch=rawCardMatch;
             del rawCardMatch
-            deckBase=backupLoc.replace('.pkl','.Deck.')
+            deckBase=weightedLoc.replace('.pkl','.Deck.')
         else:    
            
             if not self.resetTrainedCardMatch and exists(TrainedCardMatchLoc):
-                # rawCardMatch = dill.load_session(backupLoc0)
                 with open(TrainedCardMatchLoc, 'rb') as file:
                     trainedCardMatch = dill.load(file)
                     file.close()
@@ -311,9 +310,9 @@ class CardProject:
 
                     iconicCards = iconicCards[0:self.BasisSize]
                     BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
-                    if exists(backupLoc):
-                        shutil.copyfile(backupLoc, backupLoc0)
-                    with open(backupLoc0, 'rb') as file:
+                    if exists(weightedLoc):
+                        shutil.copyfile(weightedLoc, weightedLoc0)
+                    with open(weightedLoc0, 'rb') as file:
                         rawCardMatch = dill.load(file)
                         file.close()
                     cardDesciptions = rawCardMatch[iconicCards, :]
@@ -347,23 +346,23 @@ class CardProject:
                         dill.dump(items, f)
                         f.close()
 
-                    icons = len(iconicCards)
-                    icons2 = icons * 2
-                    LS = LearnedSynergy([icons2, 1])
-                    LS.trainModel(X, V)
-                    N = len(cards.internalSet)
-                    trainedCardMatch = np.zeros([N, N])
-                    for x in range(N):
-                        if x % round(N / 10) == 0:
-                            print('using model loop ' + str(x) + ' of ' + str(N))
-                        X2 = np.zeros([N, icons2])
-                        for y in range(N):
-                            X2[y, 0:icons] = cardDesciptions[:, x]
-                            X2[y, icons:icons2] = cardDesciptions[:, y]
-                        trainedCardMatch[x, :] = LS.useModel(X2)[:, 0]
-                    with open(TrainedCardMatchLoc, "wb") as f:
-                        dill.dump(trainedCardMatch, f)
-                        f.close()
+                icons = len(iconicCards)
+                icons2 = icons * 2
+                LS = LearnedSynergy([icons2, 1])
+                LS.trainModel(X, V)
+                N = len(cards.internalSet)
+                trainedCardMatch = np.zeros([N, N])
+                for x in range(N):
+                    if x % round(N / 10) == 0:
+                        print('using model loop ' + str(x) + ' of ' + str(N))
+                    X2 = np.zeros([N, icons2])
+                    for y in range(N):
+                        X2[y, 0:icons] = cardDesciptions[:, x]
+                        X2[y, icons:icons2] = cardDesciptions[:, y]
+                    trainedCardMatch[x, :] = LS.useModel(X2)[:, 0]
+                with open(TrainedCardMatchLoc, "wb") as f:
+                    dill.dump(trainedCardMatch, f)
+                    f.close()
 
             cardMatch = trainedCardMatch + trainedCardMatch.transpose()
             del trainedCardMatch

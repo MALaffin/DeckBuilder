@@ -6,6 +6,8 @@ import numpy as np
 
 class Card:
 
+    ParseTextEnabled=True
+
     def RemoveReminders(self,text):
         text2=text
         loc1=text.find("(")
@@ -38,7 +40,7 @@ class Card:
         lastsize=-1
         while not lastsize == len(MCnoRep):
             lastsize=len(MCnoRep)
-            MCnoRep = MCnoRep\
+            MCnoRep = MCnoRep.replace("} {","}{")\
                 .replace("{w}{w}","{w}")\
                 .replace("{u}{u}","{u}")\
                 .replace("{b}{b}","{b}")\
@@ -68,101 +70,73 @@ class Card:
         
         text=self.RemoveReminders(text)
 
-        text = text.replace('end of turn', '') \
-            .replace('this turn', 'thisturn') \
-            .replace(' turn', ' \nuntap \ndraw \nattack \ncreature \nartifact \nland') \
-            .replace('if ', 'when ') \
+        text = text.replace('end of turn', 'endOfTurn') \
+            .replace('this turn', 'thisTurn') \
+            .replace('turn', ' untap draw attack') \
+            .replace('if able', 'if_able') \
+            .replace('only if', 'only_if') \
+            .replace('when able', 'if_able') \
+            .replace('only when', 'only_if') \
             .replace('proliferate ', 'counter ') \
             .replace('\ni ', '\nturn counter: ') \
             .replace('\nii ', '\nturn counter: ') \
             .replace('\niii ', '\nturn counter: ') \
             .replace('\niv ', '\nturn counter: ') \
-            .replace('counter target', 'cancel') \
+            .replace('counter target', 'cast to graveyard') \
             .replace('\n•', ' ') \
-            .replace('{t}', 'untap') \
+            .replace('{t}', 'tap') \
             .replace('combat', 'attack') \
             .replace('is every creature type', 'changeling') \
-            .replace('sacrifice', 'graveyard') \
-            .replace('targets', 'target') \
-            .replace('/', ' ')
-        types = ['creature', 'artifact', 'land', 'planeswalker', 'instant', 'sorcery', 'enchantment'
-            , 'white', 'blue', 'black', 'red', 'green'] #todo consider devoid
-        for t in types:
-            text.replace(t + 's', t)
-        punctuation = [' ', ':', ',', '\n']
-        keyGameWords = ['untap', 'upkeep', 'draw', 'attack', 'endofturn'
-                           , 'when', 'sacrifice', 'graveyard', 'library'
-                           , 'gets', '+2', '+1', '+0', '-1', 'X'
-                           , 'battlefield', 'exile'
-                           ,'counter', 'token'
-                           , 'prevent', 'damage', 'lose', 'life'
-                           , 'search', 'thisturn', 'all', 'cast', 'spell', 'main', 'player', 'opponent'
-                           , 'could', 'unblock'
-                           , 'cancel', 'static', 'cardname'
-                           , 'changeling'
-                           #,  'return', 'target', 'hand' cultivating this list is ... difficult
-                        ] + punctuation + types + self.getManaKeywords()
+            .replace('.', '') \
+        #roughly 300000 words;
+        # #1/3 in top 100 but only ~10000 per biggest
+        #probably not worth removing them
         withMana = castText + text
-        blocks = [withMana]  # [text]#
         if verbose:
-            print(blocks[0])
-        for p in punctuation:
-            tmp = []
-            for block in blocks:
-                words = block.split(p)
-                tmp = tmp + [words[0]]
-                for w in range(1, len(words)):
-                    tmp = tmp + [p, words[w]]
-            blocks = tmp
-        # filter text by chosen words
-        text = ''
-        for word in blocks:
-            for keyword in keyGameWords:
-                if keyword in word:
-                    text = text + keyword
-                    continue
-        blocks = text.split('\n')
+            print(withMana)
+        blocks = withMana.split('\n')
         for block in blocks:
-            if(block.find("when")): #activated
+            if(block.find("when")>-1): #activated
                 block2=block
             else:
                 block2=block.replace(',','')
-            activated = block2.split(':', 1)
-            triggered = block2.split(',', 1)
+            activated = block2.split(':', 1)            
             if len(activated) == 2:
-                trigger = activated[0]
-                event = activated[1]
-            elif len(triggered) == 2:
-                trigger = triggered[0]
-                event = triggered[1]
+                if(activated[1].find('when')>-1):
+                    triggered = activated[1].split(',', 1)
+                    if len(triggered) == 2:
+                        trigger = activated[0] + ' ' + triggered[0]
+                        event = triggered[1]
+                    else:
+                        trigger = activated[0]
+                        event = activated[1]
+                else:
+                    trigger = activated[0]
+                    event = activated[1]
             else:
-                trigger = 'static' #want something for weighted matching
-                event = block
+                triggered = block2.split(',', 1)
+                if len(triggered) == 2:
+                    trigger = triggered[0]
+                    event = triggered[1]
+                else:
+                    trigger = 'STATIC' #want something for weighted matching
+                    event = block
             #consider error checking here for empty trigger/event
             trigger=self.parseManaForTrigger(trigger)
             event=self.parseManaForEvent(event)
+            #played right, triggers are events...
+            #{t}->untap already... event = event.replace('untap', '{t}')  # using untap(effect) and {t}(cost) as a synergy pair
+            if(block.find("sacrifice")):
+                event=event + "graveyard"
             trigger = trigger.replace(',', '')
             event = event.replace(',', '')
             # sacrifice adds to the events
             trigger = list(filter(None, trigger.split(' ')))
             trigger.sort()  # mtg does not seem to care too much about order target red creature vs if red target
-            #{t}->untap already... event = event.replace('untap', '{t}')  # using untap(effect) and {t}(cost) as a synergy pair
-            #played right, triggers are events...
-            repTrigger='graveyard' in trigger \
-                    or 'counter' in trigger;
             event = list(filter(None, event.split(' ')))
             event.sort()
             self.Triggers = self.Triggers + [trigger]
             self.Events = self.Events + [event]
-            if repTrigger:
-                self.Triggers = self.Triggers + [trigger]
-                #self.Events = self.Events + [ ['repTrigger'] + trigger]
-                self.Events = self.Events + [trigger]
-        for type in allTypes.split(" "):
-            self.Triggers = self.Triggers + [['static']+[type]]
-            #self.Triggers = self.Triggers + [['static']]
-            #self.Triggers = self.Triggers + [ [type] ]
-            self.Events = self.Events + [ [type] ]  
         if verbose:
             print(str(self.Triggers))
             print(str(self.Events))
@@ -230,7 +204,8 @@ class Card:
         self.isTribal=isTribal
         self.isNearTribal=isNearTribal
         self.isChangeling=isChangeling        
-        self.ParseText()
+        if Card.ParseTextEnabled:
+            self.ParseText()
 
     def mergeWith(self, otherCard):
         self.types = self.types + ' ' + otherCard.types
@@ -354,10 +329,24 @@ class Card:
         d = scale * v0[n]
         return d
 
+    def bestCornerToCorner(self,cost):
+        rs=cost.shape[0]
+        cs=cost.shape[1]
+        total=cost*0
+        total[0,0]=cost[0,0]
+        for row in range(1,rs):
+            total[row,0]=cost[row,0]+total[row,0]
+        for col in range(1,cs):
+            total[0,col]=cost[0,col]+total[0,col]
+        for row in range(1,rs):            
+            for col in range(1,cs):
+                total[row,col]=cost[row,col]+np.min([total[row-1,col],total[row,col-1],total[row-1,col-1]])
+        return total[rs-1,cs-1]
+
     def synergy(self, card:'Card', syn = True, fine=False, showTable=False, printInfo=False):
         bestCost = float('inf')
         tmp = np.zeros([len(self.Triggers), len(card.Events)])
-        meanCost = 0        
+        #meanCost = 0        
         for t in range(len(self.Triggers)):
             for e in range(len(card.Events)):
                 if syn :
@@ -366,11 +355,13 @@ class Card:
                 else:
                     cost =  0.5 * Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
                            + 0.5 * Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
-                    meanCost = meanCost + cost
+                    #meanCost = meanCost + cost
                 tmp[t, e] = cost
                 if np.isnan(cost):
                     print(self.name + ' error with ' + card.name)
-        meanCost = meanCost / len(self.Triggers) / len(card.Events)
+        if not syn:
+            #meanCost = meanCost / len(self.Triggers) / len(card.Events)
+            bestCost=-self.bestCornerToCorner(tmp)/self.bestCornerToCorner(-tmp)
         if printInfo:
             print(self.name + '\n' + str(self.Triggers) + '\n'
                   + card.name + '\n' + str(card.Events) + '\n'
@@ -398,14 +389,12 @@ class Card:
                     #breakpoint()
                     if syn:
                         Card.__LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
-                    else:
-                        Card.__LevenshteinDistance1(self.Events[y], card.Triggers[x], fine, True, 1, 1)
+                    else: 
+                        Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, True, 1, 1)
+                        Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, True, 1, 1)
             plt.connect('button_press_event', on_click)
             plt.show()
-        if syn :
-            return -bestCost
-        else : #many cards are already creatures with similar casting costs... this will emphasize similar abilities
-            return -meanCost
+        return -bestCost
 
     def ColorID(self):
         if self.manacost :
