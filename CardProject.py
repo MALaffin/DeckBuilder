@@ -195,20 +195,22 @@ class CardProject:
                 rawCardMatch = dill.load(file)
                 file.close()
         else:        
-            fname= fname0+ '.Synergy.pkl'
-            synergyLoc = self.baseLocation+fname
-            synergyLoc0 = self.ramLocation+ fname
-            if exists(synergyLoc):
-                shutil.copyfile(synergyLoc, synergyLoc0)
-            if not resetRawCardMatch and exists(synergyLoc0):
-                #ideally this should be done after similarity 
-                with open(synergyLoc0, 'rb') as file:
-                    synergy = dill.load(file)
-                    file.close()
-            else:
+            
+            for simType in range(2):
+                fname= fname0+ '.SimType'+str(simType)+'.pkl'
+                synergyLoc = self.baseLocation+fname
+                synergyLoc0 = self.ramLocation+ fname
+                if exists(synergyLoc):
+                    shutil.copyfile(synergyLoc, synergyLoc0)
+                if not resetRawCardMatch and exists(synergyLoc0):
+                    #ideally this should be done after similarity 
+                    with open(synergyLoc0, 'rb') as file:
+                        synergy = dill.load(file)
+                        file.close()
+                else:
                 t = time()
                 cards.fine = self.fine
-                cards.synNotSim = True
+                cards.synSimType = simType
                 cards.mxPrcs = self.coresAllowed
                 synergy = cards.synergy3()
                 elapsed2 = time() - t
@@ -220,28 +222,6 @@ class CardProject:
                 gc.collect()
 
             
-            fname= fname0 + '.Similarity.pkl'
-            similarityLoc = self.baseLocation+ fname
-            similarityLoc0 = self.ramLocation+ fname        
-            if exists(similarityLoc):
-                shutil.copyfile(similarityLoc, similarityLoc0)
-            if not resetRawCardMatch and exists(similarityLoc0):
-                with open(similarityLoc0, 'rb') as file:
-                    similarity = dill.load(file)
-                    file.close()
-            else:
-                t = time()
-                cards.fine = self.fine
-                cards.synNotSim = False
-                similarity = cards.synergy3()
-                elapsed2 = time() - t
-                full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
-                print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
-                with open(similarityLoc, "wb") as f:
-                    dill.dump(similarity, f)
-                    f.close()
-                gc.collect()
-
             rawCardMatch=(1-self.simWeight)*synergy+self.simWeight*similarity
             with open(weightedLoc, "wb") as f:
                 dill.dump(rawCardMatch, f)

@@ -343,23 +343,24 @@ class Card:
                 total[row,col]=cost[row,col]+np.min([total[row-1,col],total[row,col-1],total[row-1,col-1]])
         return total[rs-1,cs-1]
 
-    def synergy(self, card:'Card', syn = True, fine=False, showTable=False, printInfo=False):
+    def synergy(self, card:'Card', synSimType = 0, fine=False, showTable=False, printInfo=False):
         bestCost = float('inf')
         tmp = np.zeros([len(self.Triggers), len(card.Events)])
         #meanCost = 0        
         for t in range(len(self.Triggers)):
             for e in range(len(card.Events)):
-                if syn :
+                if synSimType==0 :
                     cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
                     bestCost = min(bestCost, cost)
-                else:
-                    cost =  0.5 * Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
-                           + 0.5 * Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
+                elif synSimType==1 :
+                    cost =  Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
+                else :
+                    cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
                     #meanCost = meanCost + cost
                 tmp[t, e] = cost
                 if np.isnan(cost):
                     print(self.name + ' error with ' + card.name)
-        if not syn:
+        if synSimType > 0:
             #meanCost = meanCost / len(self.Triggers) / len(card.Events)
             bestCost=-self.bestCornerToCorner(tmp)/self.bestCornerToCorner(-tmp)
         if printInfo:
