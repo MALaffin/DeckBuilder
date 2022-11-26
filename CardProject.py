@@ -38,11 +38,11 @@ class CardProject:
         self.baseLocation=baseLocation
         self.ramLocation=ramLocation
         self.resetDB= resetDB
-        self.resetRawCardMatch = resetRawCardMatch if resetRawCardMatch else resetDB
-        self.resetIcons = resetIcons if resetIcons else resetRawCardMatch
-        self.resetInputs = resetInputs if resetInputs else resetIcons
-        self.resetModel = resetModel if resetModel else resetInputs
-        self.resetTrainedCardMatch = resetTrainedCardMatch if resetTrainedCardMatch else resetDB
+        self.resetRawCardMatch = resetRawCardMatch if resetRawCardMatch else self.resetDB
+        self.resetIcons = resetIcons if resetIcons else self.resetRawCardMatch
+        self.resetInputs = resetInputs if resetInputs else self.resetIcons
+        self.resetModel = resetModel if resetModel else self.resetInputs
+        self.resetTrainedCardMatch = resetTrainedCardMatch if resetTrainedCardMatch else self.resetModel
         
         
         self.namedCards = namedCards#pass in names list or integer for debug cases
@@ -81,6 +81,7 @@ class CardProject:
         self.CardMatch=None
         self.updatedBelonging=None
         self.deckNames=None
+        self.PCAscore=None
 
     def debugCost(self):
         cards=self.cards
@@ -249,6 +250,7 @@ class CardProject:
         iconLoc = weightedLoc.replace('.pkl',  '.IS' + str(self.IconicSize)+'.pkl')
         inputsLoc = weightedLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
         TrainedCardMatchLoc = inputsLoc.replace('.pkl', '.TrainedCardMatch.pkl')
+        pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
         deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
             
         if self.MatchType==0:
@@ -333,7 +335,7 @@ class CardProject:
                 N = len(cards.internalSet)
                 trainedCardMatch = np.zeros([N, N])
                 for x in range(N):
-                    if x % round(N / 10) == 0:
+                    if x % round(N / 1000) == 0:
                         print('using model loop ' + str(x) + ' of ' + str(N))
                     X2 = np.zeros([N, icons2])
                     for y in range(N):
@@ -355,6 +357,21 @@ class CardProject:
         self.BasisIndexes=iconicCards[0:self.BasisSize]
 
         self.CardMatch=cardMatch
+
+
+        if not self.resetTrainedCardMatch and exists(pcaCardMatchLoc):
+            with open(pcaCardMatchLoc, 'rb') as file:
+                v = dill.load(file)
+                file.close()
+        else:
+            w, v = np.linalg.eig(self.CardMatch)
+            PCAscore=self.CardMatch*v
+            del v
+            del w
+            with open(pcaCardMatchLoc, "wb") as f:
+                dill.dump(PCAscore, f)
+                f.close()
+        self.PCAscore=PCAscore
 
         commanders=[];
         for dk in self.deckSeeds:
@@ -404,7 +421,6 @@ class CardProject:
             f.close()
             d=d+1            
         self.updatedBelonging=updatedBelonging
-
 
 if __name__ == '__main__':
     names = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch'

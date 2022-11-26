@@ -102,6 +102,17 @@ class CardProjectViewer:
 
         self.card2.itemconfig(self.cardIm2, image=self.imTk2)
 
+    def plotHelper(self,xPCA,yPCA,dimX,dimY,SelectedDeck,color,marker):
+        if(xPCA):
+            X3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimX])]
+        else:
+            X3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimX])]
+        if(yPCA):
+            Y3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimY])]
+        else:
+            Y3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimY])]
+        self.plt1.plot(X3,Y3,color=color,marker=marker,linestyle = 'None')
+
     def updateScatter(self):
         
         dimX=self.dimX.current()
@@ -111,25 +122,23 @@ class CardProjectViewer:
         if dimY < 0:
             return
 
+        xPCA=self.dims[dimX].find('PCA')==0
+        yPCA=self.dims[dimY].find('PCA')==0
+
         cardX=self.CP.cards.internalSet[int(self.dimsInds[dimX])]
         cardY=self.CP.cards.internalSet[int(self.dimsInds[dimY])]
         self.plt1.cla()
         dn=self.decks.curselection()
         if len(dn) != 0:
             SelectedDeck=self.CP.updatedBelonging[dn[0]-1]
-            X3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimX])]
-            Y3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimY])]
-            self.plt1.plot(X3,Y3,color=(1,0,0),marker='o',linestyle = 'None')
+            self.plotHelper(xPCA,yPCA,dimX,dimY,SelectedDeck,(1,0,0),'o')
         AllDecks=[]
         for d in self.CP.updatedBelonging:
             if len(d)>0:
                 AllDecks=AllDecks+d
-        X2=self.CP.CardMatch[AllDecks,int(self.dimsInds[dimX])]
-        Y2=self.CP.CardMatch[AllDecks,int(self.dimsInds[dimY])]
-        self.plt1.plot(X2,Y2,color=(0,1,0),marker='.',linestyle = 'None')
-        X1=self.CP.CardMatch[:,int(self.dimsInds[dimX])]
-        Y1=self.CP.CardMatch[:,int(self.dimsInds[dimY])]
-        self.plt1.plot(X1,Y1,color=(0,0,0),marker=',',linestyle = 'None')
+        self.plotHelper(xPCA,yPCA,dimX,dimY,AllDecks,(0,1,0),'.')
+        allcards=range(len(self.CP.cards.internalSet))
+        self.plotHelper(xPCA,yPCA,dimX,dimY,allcards,(0,0,0),',')
         self.plt1.set_title("test3")
         self.plt1.set_xlabel(cardX.name)
         self.plt1.set_ylabel(cardY.name)
@@ -164,6 +173,9 @@ class CardProjectViewer:
         
         def updateCallback(event):
             self.updateScatter()
+        for ind in range(5):
+            self.dims.append('PCA'+str(ind+1))
+            self.dimsInds.append(ind)
         for names in self.CP.deckSeeds:
             self.dims.append(names[0])
             inds=self.CP.cards.findCards(names)

@@ -31,7 +31,7 @@ class LearnedSynergy:
         # todo:xval and likely self.model.evaluate(x_test, y_test, verbose=0)
 
     def useModel(self, dataIn):
-        return self.model.predict(dataIn)
+        return self.model.predict(dataIn,verbose=0)
 
     @classmethod
     def selfTest(cls):

@@ -343,7 +343,7 @@ def findBasis3(dist, basisSize, factor=.99):
             plot(np.array(sizes).reshape([len(sizes), 1]), np.log(np.array(errors).reshape([len(sizes), 1])),
                  'basis size vs error', 'basis builder')
         if len(basis) == basisSize:
-            plt.show(block=True)
+            plt.show(block=False)
             return basis
     plot(np.array(sizes).reshape([len(sizes), 1]), np.log(np.array(errors).reshape([len(sizes), 1])),
          'basis size vs error', 'basis builder')
