@@ -29,7 +29,7 @@ class CardProject:
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '10.' 
+        ,label = '11.' 
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -197,7 +197,8 @@ class CardProject:
                 file.close()
         else:        
             
-            for simType in range(2):
+            synergies=[]
+            for simType in range(3):
                 fname= fname0+ '.SimType'+str(simType)+'.pkl'
                 synergyLoc = self.baseLocation+fname
                 synergyLoc0 = self.ramLocation+ fname
@@ -209,21 +210,23 @@ class CardProject:
                         synergy = dill.load(file)
                         file.close()
                 else:
-                t = time()
-                cards.fine = self.fine
-                cards.synSimType = simType
-                cards.mxPrcs = self.coresAllowed
-                synergy = cards.synergy3()
-                elapsed2 = time() - t
-                full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
-                print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
-                with open(synergyLoc, "wb") as f:
-                    dill.dump(synergy, f)
-                    f.close()
-                gc.collect()
+                    t = time()
+                    cards.fine = self.fine
+                    cards.synSimType = simType
+                    cards.mxPrcs = self.coresAllowed
+                    synergy = cards.synergy3()
+                    elapsed2 = time() - t
+                    full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
+                    print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
+                    with open(synergyLoc, "wb") as f:
+                        dill.dump(synergy, f)
+                        f.close()
+                    gc.collect()
+                synergies.append(synergy)
 
             
-            rawCardMatch=(1-self.simWeight)*synergy+self.simWeight*similarity
+            rawCardMatch=np.minimum((1-self.simWeight)*np.minimum(synergies[0],np.transpose(synergies[0])),self.simWeight*np.minimum(synergies[1],synergies[2]))
+            del synergies
             with open(weightedLoc, "wb") as f:
                 dill.dump(rawCardMatch, f)
                 f.close()

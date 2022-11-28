@@ -344,25 +344,27 @@ class Card:
         return total[rs-1,cs-1]
 
     def synergy(self, card:'Card', synSimType = 0, fine=False, showTable=False, printInfo=False):
-        bestCost = float('inf')
         tmp = np.zeros([len(self.Triggers), len(card.Events)])
         #meanCost = 0        
-        for t in range(len(self.Triggers)):
-            for e in range(len(card.Events)):
-                if synSimType==0 :
+        if synSimType==0 :
+            for t in range(len(self.Triggers)):
+                for e in range(len(card.Events)):
                     cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
-                    bestCost = min(bestCost, cost)
-                elif synSimType==1 :
-                    cost =  Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable) \
-                else :
+        elif synSimType==1 :
+            for t in range(len(self.Events)):
+                for e in range(len(card.Events)):
+                    cost =  Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable)
+        else :
+            for t in range(len(self.Triggers)):
+                for e in range(len(card.Triggers)):
                     cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
-                    #meanCost = meanCost + cost
-                tmp[t, e] = cost
-                if np.isnan(cost):
-                    print(self.name + ' error with ' + card.name)
+        tmp[t, e] = cost
+        if np.isnan(cost):
+            print(self.name + ' error with ' + card.name)
         if synSimType > 0:
-            #meanCost = meanCost / len(self.Triggers) / len(card.Events)
             bestCost=-self.bestCornerToCorner(tmp)/self.bestCornerToCorner(-tmp)
+        else:
+            bestCost=tmp.min()
         if printInfo:
             print(self.name + '\n' + str(self.Triggers) + '\n'
                   + card.name + '\n' + str(card.Events) + '\n'
@@ -388,7 +390,7 @@ class Card:
                     x=max(0,min(x,len(card.Events)-1))
                     y=max(0,min(y,len(self.Triggers)-1))
                     #breakpoint()
-                    if syn:
+                    if synSimType == 0:
                         Card.__LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
                     else: 
                         Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, True, 1, 1)

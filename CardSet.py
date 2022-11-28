@@ -76,17 +76,16 @@ class CardSet:
 
     def subSynergy3(self, r):
         N = len(self.internalSet)
-        cardR = self.internalSet[r]
-        t = time()
+        #cardR:Card
+        cardR = self.internalSet[r] 
         synergy = np.zeros([N, 1])
-        for c in range(N):
-            cardC = self.internalSet[c]
-            # t = time()
-            synergy[c, 0] = cardR.synergy(cardC, syn = self.synSimType, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
-            # elapsed = time() - t
-            # print(f"{r} {c} {d[c][r]} {elapsed} s")
-        elapsed = time() - t
-        # print(f"{r} {synergy[0]} {elapsed} s")
+        if self.synSimType == 0:
+            startLoc=0
+        else:
+            startLoc=r+1
+        for c in range(startLoc,N):
+            cardC = self.internalSet[c]      
+            synergy[c, 0] = cardR.synergy(cardC, synSimType = self.synSimType, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
         res = [synergy, r]
         return res
 
@@ -107,6 +106,11 @@ class CardSet:
                     remainingTime=elapsedTime/ind*(N-ind)
                     self.lastMessage=str(ind/N*100) + "% time elapsed = "+str(elapsedTime)+"  remaining time =" +str(remainingTime)+" hours"
                     print('gc row '+str(res[1]) +' '+self.lastMessage)
+        if self.synSimType != 0:
+            for r in range(0,N):
+                synergy[0,0]=0;
+                for c in range(r):
+                   synergy[r,c] =synergy[c,r]
         return synergy
 
     def subset(self, names):
