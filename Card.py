@@ -29,12 +29,13 @@ class Card:
         else:
             MC = '???' #maybe some suspend cards...
         castMod = ''
-        if (not 'instant' in self.types.lower()) and (not 'sorcery' in self.types.lower()):
-            allTypes = allTypes + ' permanent'
-        else:
+        if ('instant' in self.types.lower()) or ('sorcery' in self.types.lower()):
             castMod = 'graveyard '
+        else:
+            allTypes = allTypes + ' permanent'
         if self.subtypes:
             allTypes = allTypes + ' ' + self.subtypes.lower()
+            allTypes = allTypes.replace('[]', '') #weird [] for empty subtypes
         
         MCnoRep=MC
         lastsize=-1
@@ -57,12 +58,11 @@ class Card:
             .replace('{1}', '')+ '\n'
         #for m in range(1,self.biggestMannaNumber):
         #    castText=castText.replace('{'+str(m)+'}', '')
-        #creature somethings can attack
-        if isCreature:
-            castText = castText + 'attack unblock : damage \n' #merged conditions despite it hurting synergy measures
         
         # keep high information words
         text = self.convertManaCosts(self.text)
+        if isCreature:#creature somethings can attack
+            text = text + 'attack unblock : damage \n' #merged conditions despite it hurting synergy measures
         subNames = self.name.lower().split(' // ')
         for name in subNames:
             #text = text.replace(name, allTypes)
@@ -72,29 +72,52 @@ class Card:
 
         text = text.replace('end of turn', 'endOfTurn') \
             .replace('this turn', 'thisTurn') \
-            .replace('turn', ' untap draw attack') \
-            .replace('if able', 'if_able') \
-            .replace('only if', 'only_if') \
-            .replace('when able', 'if_able') \
-            .replace('only when', 'only_if') \
-            .replace('proliferate ', 'counter ') \
             .replace('\ni ', '\nturn counter: ') \
             .replace('\nii ', '\nturn counter: ') \
             .replace('\niii ', '\nturn counter: ') \
             .replace('\niv ', '\nturn counter: ') \
+            .replace('turn', 'untap draw attack') \
+            .replace('if able', 'if_able') \
+            .replace('only if', 'if_only') \
+            .replace('when able', 'if_able') \
+            .replace('only when', 'if_only') \
+            .replace('proliferate', 'counter') \
             .replace('counter target', 'cast to graveyard') \
             .replace('\n•', ' ') \
-            .replace('{t}', 'tap') \
             .replace('combat', 'attack') \
             .replace('is every creature type', 'changeling') \
             .replace('.', '') \
+            .replace('{t}', 'tap untap') \
+            .replace('sacrifice', 'sacrifice graveyard')
+        #use checkCards.py to check for some less useful words
         #roughly 300000 words;
         # #1/3 in top 100 but only ~10000 per biggest
-        #probably not worth removing them
-        withMana = castText + text
-        if verbose:
-            print(withMana)
-        blocks = withMana.split('\n')
+        #most seem to be keywords
+        #probably not worth keeping these:
+        text = text.replace(' the ', ' ') \
+            .replace(' a ', ' ') \
+            .replace(' you ', ' ') \
+            .replace(' of ', ' ') \
+            .replace(' to ', ' ') \
+            .replace(' your ', ' ') \
+            .replace(' card ', ' ') \
+            .replace(' this ', ' ') \
+            .replace(' it ', ' ') \
+            .replace(' that ', ' ') \
+            .replace(' on ', ' ') \
+            .replace(' its ', ' ') \
+            .replace(' as ', ' ') \
+            .replace(' an ', ' ') \
+            .replace(' at ', ' ') \
+            .replace(' is ', ' ') \
+            .replace(' in ', ' ') \
+            .replace(' has ', ' ') \
+            .replace(' be ', ' ')
+        # withMana = castText + text
+        # if verbose:
+        #     print(withMana)
+        # blocks = withMana.split('\n')
+        blocks = text.split('\n')
         for block in blocks:
             if(block.find("when")>-1): #activated
                 block2=block
@@ -119,14 +142,14 @@ class Card:
                     trigger = triggered[0]
                     event = triggered[1]
                 else:
-                    trigger = 'STATIC' #want something for weighted matching
+                    trigger = ''#'STATIC' #want something for weighted matching
                     event = block
             #consider error checking here for empty trigger/event
             trigger=self.parseManaForTrigger(trigger)
             event=self.parseManaForEvent(event)
             #played right, triggers are events...
             #{t}->untap already... event = event.replace('untap', '{t}')  # using untap(effect) and {t}(cost) as a synergy pair
-            if(block.find("sacrifice")):
+            if(block.find("sacrifice")>-1):
                 event=event + "graveyard"
             trigger = trigger.replace(',', '')
             event = event.replace(',', '')
@@ -219,8 +242,6 @@ class Card:
     def __LevenshteinDistance0(s, t, fine, showTable, sCost=1, tCost=1):
         m = len(s)
         n = len(t)
-        if (n + m) == 0:
-            return 1
         if n == 0:
             return 1
         if m == 0:
@@ -231,7 +252,7 @@ class Card:
             d[0][i] = i * sCost
         for j in range(1, n + 1, 1):
             d[j][0] = j * tCost
-        d0 = max(tCost, sCost)
+        d0 = tCost + sCost
         for j in range(1, n + 1, 1):
             for i in range(1, m + 1, 1):
                 if isinstance(s, str):
@@ -283,8 +304,6 @@ class Card:
     def __LevenshteinDistance1(s, t, fine, showTable, sCost=1, tCost=1):
         m = len(s)
         n = len(t)
-        if (n + m) == 0:
-            return 1
         if n == 0:
             return 1
         if m == 0:
@@ -296,7 +315,7 @@ class Card:
         for i in range(n + 1):
             v0[i] = i * tCost
 
-        d0 = max(tCost, sCost)
+        d0 = tCost + sCost
         for i in range(m):
             v1[0] = i + sCost
             for j in range(n):
@@ -331,36 +350,39 @@ class Card:
 
     def bestCornerToCorner(self,cost):
         rs=cost.shape[0]
+        if(rs==0):
+            return 1
         cs=cost.shape[1]
+        if(cs==0):
+            return 1
         total=cost*0
         total[0,0]=cost[0,0]
         for row in range(1,rs):
-            total[row,0]=cost[row,0]+total[row,0]
+            total[row,0]=cost[row,0]+total[row-1,0]
         for col in range(1,cs):
-            total[0,col]=cost[0,col]+total[0,col]
+            total[0,col]=cost[0,col]+total[0,col-1]
         for row in range(1,rs):            
             for col in range(1,cs):
                 total[row,col]=cost[row,col]+np.min([total[row-1,col],total[row,col-1],total[row-1,col-1]])
         return total[rs-1,cs-1]
 
     def synergy(self, card:'Card', synSimType = 0, fine=False, showTable=False, printInfo=False):
-        tmp = np.zeros([len(self.Triggers), len(card.Events)])
         #meanCost = 0        
         if synSimType==0 :
+            tmp = np.ones([len(self.Triggers), len(card.Events)])*float('inf')
             for t in range(len(self.Triggers)):
                 for e in range(len(card.Events)):
-                    cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
+                    tmp[t, e] = Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
         elif synSimType==1 :
+            tmp = np.ones([len(self.Events), len(card.Events)])*float('inf')
             for t in range(len(self.Events)):
                 for e in range(len(card.Events)):
-                    cost =  Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, showTable)
+                    tmp[t, e] =  Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, False, 1, 1)
         else :
+            tmp = np.ones([len(self.Triggers), len(card.Triggers)])*float('inf')
             for t in range(len(self.Triggers)):
                 for e in range(len(card.Triggers)):
-                    cost = Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, showTable)
-        tmp[t, e] = cost
-        if np.isnan(cost):
-            print(self.name + ' error with ' + card.name)
+                    tmp[t, e] = Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, False, 1, 1)        
         if synSimType > 0:
             bestCost=-self.bestCornerToCorner(tmp)/self.bestCornerToCorner(-tmp)
         else:
@@ -387,14 +409,15 @@ class Card:
                     print('x=' + str(point[0]) + ' y=' + str(point[1]))
                     x = round(point[0]) - 1
                     y = round(point[1]) - 1
-                    x=max(0,min(x,len(card.Events)-1))
-                    y=max(0,min(y,len(self.Triggers)-1))
+                    x=max(0,min(x,tmp.shape[1]-1))
+                    y=max(0,min(y,tmp.shape[0]-1))
                     #breakpoint()
                     if synSimType == 0:
                         Card.__LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
+                    elif synSimType == 1:
+                        Card.__LevenshteinDistance1(self.Events[y], card.Events[x], fine, True, 1, 1)                        
                     else: 
-                        Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, True, 1, 1)
-                        Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, True, 1, 1)
+                        Card.__LevenshteinDistance1(self.Triggers[y], card.Triggers[x], fine, True, 1, 1)
             plt.connect('button_press_event', on_click)
             plt.show()
         return -bestCost

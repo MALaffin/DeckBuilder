@@ -108,8 +108,7 @@ class CardSet:
                     print('gc row '+str(res[1]) +' '+self.lastMessage)
         if self.synSimType != 0:
             for r in range(0,N):
-                synergy[0,0]=0;
-                for c in range(r):
+                for c in range(r+1,N):
                    synergy[r,c] =synergy[c,r]
         return synergy
 

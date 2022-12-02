@@ -83,9 +83,18 @@ class CardProject:
         self.deckNames=None
         self.PCAscore=None
 
-    def debugCost(self):
+    def debugCost(self,numCards=-1,simType=-1):
+        if(simType>-1):
+            fname0 = 'CardInfo.' + self.label + str(numCards) + str(self.fine) 
+            fname= fname0+ '.SimType'+str(simType)+'.pkl'
+            synergyLoc0 = self.ramLocation+ fname
+            #ideally this should be done after similarity 
+            with open(synergyLoc0, 'rb') as file:
+                cardMatch = dill.load(file)
+                file.close()
+        else:
+            cardMatch=self.CardMatch 
         cards=self.cards
-        cardMatch=self.CardMatch 
         fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
         h = ax1.imshow(cardMatch, extent=[.5, cardMatch.shape[1] + .5, .5, cardMatch.shape[0] + .5], vmin=-1.001,
                     vmax=0.001, aspect='auto',origin='lower')
@@ -106,12 +115,18 @@ class CardProject:
                 pair = [cards.internalSet[x].multiverseid, cards.internalSet[y].multiverseid]
                 #breakpoint()
                 imageCombo(pair)
-                cards.internalSet[x].synergy(cards.internalSet[y],showTable=True, printInfo=True)
+                if simType==0 or simType==-1:
+                    cards.internalSet[x].synergy(cards.internalSet[y],showTable=True, printInfo=True,synSimType=0)
+                    cards.internalSet[y].synergy(cards.internalSet[x],showTable=True, printInfo=True,synSimType=0)
+                if simType==1 or simType==-1:
+                    cards.internalSet[x].synergy(cards.internalSet[y],showTable=True, printInfo=True,synSimType=1)
+                if simType==2 or simType==-1:
+                    cards.internalSet[x].synergy(cards.internalSet[y],showTable=True, printInfo=True,synSimType=2)
 
 
         plt.connect('button_press_event', on_click)
+        plt.show(block=False)
 
-        plt.show()
 
     def createOrLoadData(self):
     
@@ -223,22 +238,27 @@ class CardProject:
                         f.close()
                     gc.collect()
                 synergies.append(synergy)
-
+                del synergy 
             
-            rawCardMatch=np.minimum((1-self.simWeight)*np.minimum(synergies[0],np.transpose(synergies[0])),self.simWeight*np.minimum(synergies[1],synergies[2]))
+            #rawCardMatch=np.maximum((1-self.simWeight)*np.maximum(synergies[0],np.transpose(synergies[0])),self.simWeight*np.maximum(synergies[1],synergies[2]))
+            #rawCardMatch=np.minimum((1-self.simWeight)*np.minimum(synergies[0],np.transpose(synergies[0])),self.simWeight*np.minimum(synergies[1],synergies[2]))
+            #rawCardMatch=(1-self.simWeight)*np.minimum(synergies[0],np.transpose(synergies[0])) + self.simWeight*np.minimum(synergies[1],synergies[2])
+            rawCardMatch=(1-self.simWeight)*np.maximum(synergies[0],np.transpose(synergies[0])) + self.simWeight*np.maximum(synergies[1],synergies[2])
             del synergies
             with open(weightedLoc, "wb") as f:
                 dill.dump(rawCardMatch, f)
                 f.close()
             
-            del synergy 
-            del similarity
             gc.collect()
 
         
         if numCards == -1:#helpful debug routines but skip the training
             self.CardMatch=rawCardMatch;
-            self.debugCost()
+            #self.debugCost(-1,0)
+            #self.debugCost(-1,1)
+            #self.debugCost(-1,2)
+            self.debugCost(-1,-1)
+            plt.show(block=True)
             self.updatedBelonging=None
 
             location = '/media/VMShare/OldDecks/Dragons/'
@@ -432,5 +452,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=None)
+    cp=CardProject(namedCards=names,fine=False,simWeight=0)
     cp.createOrLoadData()
