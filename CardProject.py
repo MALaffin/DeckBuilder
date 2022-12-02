@@ -29,7 +29,7 @@ class CardProject:
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '11.' 
+        ,label = '12.' 
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -384,7 +384,7 @@ class CardProject:
 
         if not self.resetTrainedCardMatch and exists(pcaCardMatchLoc):
             with open(pcaCardMatchLoc, 'rb') as file:
-                v = dill.load(file)
+                PCAscore = dill.load(file)
                 file.close()
         else:
             w, v = np.linalg.eig(self.CardMatch)
