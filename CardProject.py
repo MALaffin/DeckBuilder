@@ -29,7 +29,7 @@ class CardProject:
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '12.' 
+        ,label = '13.' 
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -276,6 +276,20 @@ class CardProject:
         pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
         deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
             
+
+        if not self.resetIcons and exists(iconLoc):
+            with open(iconLoc, 'rb') as file:
+                iconicCards = dill.load(file)
+                file.close()
+        else:
+
+            cardDist = np.corrcoef(rawCardMatch)  # np.cov(rawCardMatch)
+            np.nan_to_num(cardDist, copy=False, nan=0)
+            iconicCards = findBasis3(cardDist, self.IconicSize)
+            with open(iconLoc, "wb") as f:
+                dill.dump(iconicCards, f)
+                f.close()
+
         if self.MatchType==0:
             cardMatch=rawCardMatch;
             del rawCardMatch
@@ -298,20 +312,6 @@ class CardProject:
                     cardDesciptions = items['cardDesciptions']
                     BasisCards = items['BasisCards']
                 else:
-
-                    if not self.resetIcons and exists(iconLoc):
-                        with open(iconLoc, 'rb') as file:
-                            iconicCards = dill.load(file)
-                            file.close()
-                    else:
-
-                        cardDist = np.corrcoef(rawCardMatch)  # np.cov(rawCardMatch)
-                        np.nan_to_num(cardDist, copy=False, nan=0)
-                        del rawCardMatch
-                        iconicCards = findBasis3(cardDist, self.IconicSize)
-                        with open(iconLoc, "wb") as f:
-                            dill.dump(iconicCards, f)
-                            f.close()
 
                     iconicCards = iconicCards[0:self.BasisSize]
                     BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
@@ -371,11 +371,6 @@ class CardProject:
 
             cardMatch = trainedCardMatch + trainedCardMatch.transpose()
             del trainedCardMatch
-
-
-        with open(iconLoc, 'rb') as file:
-            iconicCards = dill.load(file)
-            file.close()
 
         self.BasisIndexes=iconicCards[0:self.BasisSize]
 

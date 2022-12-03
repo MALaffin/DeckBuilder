@@ -113,11 +113,13 @@ class Card:
             .replace(' in ', ' ') \
             .replace(' has ', ' ') \
             .replace(' be ', ' ')
-        # withMana = castText + text
-        # if verbose:
-        #     print(withMana)
-        # blocks = withMana.split('\n')
-        blocks = text.split('\n')
+        #todo: figure out how to add cast info without making matching trivial
+        # ... maybe another cast of trigger/events?
+        withMana = castText + text
+        if verbose:
+            print(withMana)
+        blocks = withMana.split('\n')
+        # blocks = text.split('\n')
         for block in blocks:
             if(block.find("when")>-1): #activated
                 block2=block
