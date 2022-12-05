@@ -29,7 +29,7 @@ class CardProject:
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '13.' 
+        ,label = '14.' 
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -59,20 +59,44 @@ class CardProject:
         if deckSeeds:
             self.deckSeeds=deckSeeds
         else:
+            #A note on Inferno of the Star Mounts, Other dragons like Lathliss can capture
+            #  the firebreathers as a set, so I am manually seeding them to him
+            fiveColorBaseLands=[\
+                'Plains','Snow-Covered Plains',\
+                'Island','Snow-Covered Island',\
+                'Swamp','Snow-Covered Swamp',\
+                'Mountain','Snow-Covered Mountain',\
+                'Forest','Snow-Covered Forest']
+            RedBaseLands=[]
+            for land in range(25):# leave room for other interesting lands
+                RedBaseLands=RedBaseLands+['Mountain']
             self.deckSeeds = [
-            ['Garth One-Eye',"Volrath's Laboratory", 'Riptide Replicator', 'Mimic Vat'] \
-            , ['Morophon, the Boundless']\
+            ['Garth One-Eye',"Volrath's Laboratory", 'Riptide Replicator', 'Mimic Vat']\
+                +fiveColorBaseLands \
+            , ['Morophon, the Boundless']+fiveColorBaseLands\
             , ['Reaper King', "Sylvia Brightspear", 'Khorvath Brightflame']\
-            , ['Niv-Mizzet Reborn']\
-            , ['O-Kagachi, Vengeful Kami']\
-            , ['Ramos, Dragon Engine']\
-            , ['Scion of the Ur-Dragon']\
-            , ['The Ur-Dragon']\
-            , ['Kyodai, Soul of Kamigawa']\
-            , ['Tiamat']\
-            , ['Gadrak, the Crown-Scourge']\
-            , ['Lathliss, Dragon Queen']\
-            , ['Inferno of the Star Mounts']\
+                +fiveColorBaseLands\
+            , ['Niv-Mizzet Reborn']+fiveColorBaseLands\
+            , ['O-Kagachi, Vengeful Kami']+fiveColorBaseLands\
+            , ['Ramos, Dragon Engine']+fiveColorBaseLands\
+            , ['Scion of the Ur-Dragon']+fiveColorBaseLands\
+            , ['The Ur-Dragon']+fiveColorBaseLands\
+            , ['Kyodai, Soul of Kamigawa']+fiveColorBaseLands\
+            , ['Tiamat']+fiveColorBaseLands\
+            , ['Gadrak, the Crown-Scourge']+RedBaseLands\
+            , ['Lathliss, Dragon Queen']+RedBaseLands\
+            , ['Inferno of the Star Mounts', \
+                'Shivan Dragon','Furnace Whelp', \
+                'Hellkite Punisher','Dragon Hatchling', \
+                'Rakdos Pit Dragon','Arcbound Whelp',\
+                'Pardic Dragon',\
+                'Mana Flare','Caged Sun',\
+                'Gauntlet of Might','Gauntlet of Power',\
+                'Extraplanar Lens',\
+                'Dragon Tyrant','Nalathni Dragon',\
+                'Dragon Whelp','Lightning Dragon',\
+                'Chaos Moon'\
+                ]+RedBaseLands\
             ]
         self.cardTypeBalance=[45, 80, 80, 91, 99, 100];
 
@@ -274,6 +298,7 @@ class CardProject:
         inputsLoc = weightedLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
         TrainedCardMatchLoc = inputsLoc.replace('.pkl', '.TrainedCardMatch.pkl')
         pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
+        distCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.dist.pkl')
         deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
             
 
@@ -282,7 +307,6 @@ class CardProject:
                 iconicCards = dill.load(file)
                 file.close()
         else:
-
             cardDist = np.corrcoef(rawCardMatch)  # np.cov(rawCardMatch)
             np.nan_to_num(cardDist, copy=False, nan=0)
             iconicCards = findBasis3(cardDist, self.IconicSize)
@@ -391,6 +415,26 @@ class CardProject:
                 f.close()
         self.PCAscore=PCAscore
 
+        if not self.resetTrainedCardMatch and exists(distCardMatchLoc):
+            with open(distCardMatchLoc, 'rb') as file:
+                distCardMatch = dill.load(file)
+                file.close()
+        else:
+            distCardMatch=0*cardMatch;
+            N=cardMatch.shape[0]
+            for c in range(N):
+                if c % 32 == 0:
+                    print('dist '+str(c/N*100) + '% of '+str(N))
+                vs=cardMatch-cardMatch[:,c];
+                vs=vs**2
+                distCardMatch[c,:]=vs.sum(axis=1).reshape(1,N)
+            for r in range(N):
+                for c in range(r,N):
+                    distCardMatch[r,c]=distCardMatch[c,r]            
+            with open(distCardMatchLoc, "wb") as f:
+                dill.dump(distCardMatch, f)
+                f.close()
+
         commanders=[];
         for dk in self.deckSeeds:
             commanders.append(dk[0])
@@ -412,7 +456,7 @@ class CardProject:
         classes=cards.classes()
         comanderClasses=classes[commanderIndexes]
         updatedBelonging = findNetworks2(classes,comanderClasses,commanderPoolsByIdentity,\
-            cardMatch, belonging, sourceInfo, self.cardTypeBalance )
+            -1*distCardMatch, belonging, sourceInfo, self.cardTypeBalance )
 
         d=0
         self.deckNames=[]

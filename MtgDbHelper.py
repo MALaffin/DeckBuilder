@@ -54,8 +54,9 @@ class MtgDbHelper: #static class effectively an interface to mySQL
                 and (not subtypes = 'Contraption') 
                 and (not types = 'Vanguard')
                 and (not multiverseId = '0')
+                and (not types like '%sticker%')
             )"""
-            isDragon="""(       
+            isDragon="""(
                 (types LIKE '%Creature%' AND subtypes LIKE '%Dragon%')
                 OR (types = 'Planeswalker' AND subtypes = 'Bolas')
                 OR (types = 'Planeswalker' AND subtypes = 'Ugin')
@@ -76,6 +77,7 @@ class MtgDbHelper: #static class effectively an interface to mySQL
                 OR (name = 'Kargan Dragonlord')
                 OR (name = 'Sylvia Brightspear')
                 OR (name = 'Garth One-Eye')
+                OR (name = 'Mishra, Claimed by Gix')
             )"""# become, make, or enable casting
             isChangeling="""(
                 (

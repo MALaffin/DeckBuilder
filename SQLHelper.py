@@ -295,3 +295,4 @@ def AddCol(connection, db, table, colName, condition):
 # show tables;
 # Select count(*) from cards;
 # SELECT DATA_TYPE from INFORMATION_SCHEMA. COLUMNS where table_schema = 'MTG_FULL' and table_name = 'cards';
+# select * from cards where name like "%Shivan%";
