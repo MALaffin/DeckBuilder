@@ -429,11 +429,11 @@ class Card:
             MC=self.manacost
         else:
             MC=""
-        w="{W" in self.text or "W}" in self.text or "W" in MC
-        u="{U" in self.text or "U}" in self.text or "U" in MC
-        b="{B" in self.text or "B}" in self.text or "B" in MC
-        r="{R" in self.text or "R}" in self.text or "R" in MC
-        g="{G" in self.text or "G}" in self.text or "G" in MC
+        w="{W" in self.text or "W}" in self.text or "W" in MC or 'Plains' in self.text
+        u="{U" in self.text or "U}" in self.text or "U" in MC or 'Island' in self.text
+        b="{B" in self.text or "B}" in self.text or "B" in MC or 'Swamp' in self.text
+        r="{R" in self.text or "R}" in self.text or "R" in MC or 'Mountain' in self.text
+        g="{G" in self.text or "G}" in self.text or "G" in MC or 'Forest' in self.text
         id=0;
         if w:
             id=id+1
