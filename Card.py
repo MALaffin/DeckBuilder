@@ -7,6 +7,7 @@ import numpy as np
 class Card:
 
     ParseTextEnabled=True
+    CardVersion_dontChangeAtRuntime=15
 
     def RemoveReminders(self,text):
         text2=text

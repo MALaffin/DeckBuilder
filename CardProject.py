@@ -29,7 +29,7 @@ class CardProject:
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '15.' 
+        ,label = 'Version'+str(Card.CardVersion_dontChangeAtRuntime)+"/"
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -110,7 +110,7 @@ class CardProject:
 
     def debugCost(self,numCards=-1,simType=-1):
         if(simType>-1):
-            fname0 = 'CardInfo.' + self.label + str(numCards) + str(self.fine) 
+            fname0 = self.label + 'CardInfo.' + str(numCards) + str(self.fine) 
             fname= fname0+ '.SimType'+str(simType)+'.pkl'
             synergyLoc0 = self.ramLocation+ fname
             #ideally this should be done after similarity 
@@ -156,7 +156,7 @@ class CardProject:
     def createOrLoadData(self):
     
         t = time()
-        MtgDbHelper.saveLocation=self.baseLocation
+        MtgDbHelper.saveLocation=self.baseLocation+self.label
         MtgDbHelper.initDb(self.resetDB)
         elapsed1 = time() - t
         print(f"DB time: {elapsed1} s")
@@ -224,11 +224,18 @@ class CardProject:
             numCards='D'
         self.cards=cards
 
-        fname0 = 'CardInfo.' + self.label + str(numCards) + str(self.fine) 
+        baseLocation=self.baseLocation+self.label
+        if(not os.path.isdir(baseLocation)):
+            os.mkdir(baseLocation)
+        ramLocation=self.ramLocation+self.label
+        if(not os.path.isdir(ramLocation)):
+            os.mkdir(ramLocation)
+
+        fname0 = 'CardInfo.' + str(numCards) + str(self.fine) 
         
         fname = fname0 + '.Weighted' + str(self.simWeight)+'.pkl'
-        weightedLoc = self.baseLocation+ fname
-        weightedLoc0 = self.ramLocation+ fname 
+        weightedLoc = baseLocation+ fname
+        weightedLoc0 = ramLocation+ fname 
         if exists(weightedLoc):
             shutil.copyfile(weightedLoc, weightedLoc0)
         if not resetRawCardMatch and exists(weightedLoc0):
@@ -240,8 +247,8 @@ class CardProject:
             synergies=[]
             for simType in range(3):
                 fname= fname0+ '.SimType'+str(simType)+'.pkl'
-                synergyLoc = self.baseLocation+fname
-                synergyLoc0 = self.ramLocation+ fname
+                synergyLoc = baseLocation+fname
+                synergyLoc0 = ramLocation+ fname
                 if exists(synergyLoc):
                     shutil.copyfile(synergyLoc, synergyLoc0)
                 if not resetRawCardMatch and exists(synergyLoc0):
@@ -423,7 +430,7 @@ class CardProject:
         else:
             distCardMatch=0*cardMatch;
             N=cardMatch.shape[0]
-            for c in range(N):
+            for c in range(N):#candidate for parallelization
                 if c % 32 == 0:
                     print('dist '+str(c/N*100) + '% of '+str(N))
                 vs=cardMatch-cardMatch[:,c];
