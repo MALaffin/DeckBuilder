@@ -240,19 +240,29 @@ class CardSet:
             makesFor[card,0]=0
             if "Add" in current.text:
                 for ind in range(len(current.Events)):
-                    e=current.Events[ind];
-                    t=current.Triggers[ind];
-                    found=0;
+                    e=current.Events[ind]
+                    t=current.Triggers[ind]
+                    found=0
+                    cost=0
                     for s in e:
                         if '{' in s:
                             found=found+1
+                    for s in e:
+                        if 'or' in s:# should cover most dual mana options
+                            found=1
                     for s in t:
                         if '{' in s:
-                            found=found-1
-                    makesFor[card,0]=max(found,makesFor[card,0])
+                            cost=cost+1
+                    if(current.types.find("Instant")>-1):#cover instants manacost
+                        cost=max(cost,float(current.manavalue))
+                    makesFor[card,0]=max(found-cost,makesFor[card,0])
             if "Land" in current.types and makesFor[card,0]==0:
                 print('weird land: '+current.name)
-            makesFor[card,1]=float(self.internalSet[card].manavalue)
+            makesFor[card,1]=float(current.manavalue)
+            if not "Land" in current.types and makesFor[card,1]==0:
+                makesFor[card,1]=1#treat moxes like one drops not lands
+            #if(current.name.find("Talisman")>-1):
+            #    print(current.name + ' ' + str(makesFor[card,0]) + ' ' + str(makesFor[card,1]))
         return makesFor
 
     def classes(self):

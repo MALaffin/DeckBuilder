@@ -29,7 +29,7 @@ class CardProject:
         ,IconicSize = 200 
         ,BasisSize = 125 
         ,fine = False 
-        ,label = '14.' 
+        ,label = '15.' 
         ,coresAllowed=7 
         ,deckSeeds=None 
         ):
@@ -98,7 +98,8 @@ class CardProject:
                 'Chaos Moon'\
                 ]+RedBaseLands\
             ]
-        self.cardTypeBalance=[45, 80, 80, 91, 99, 100];
+        self.cardTypeBalance=[45, 35, 0, 11, 9, 1];
+        #core deck, land, 1 or less, 2 or less, 3 or less, 4 or less
 
         self.cards=None
         self.BasisIndexes=None
@@ -442,21 +443,13 @@ class CardProject:
         commanderIndexes = cards.findCards(commanders)
         commanderPoolsByIdentity=cards.CardPoolByCommander(commanders)
         sourceInfo=cards.sources()
-        belonging = np.zeros([cardMatch.shape[0], 1])
-        for ci in range(len(commanderIndexes)):
-            inds=cards.findCards(self.deckSeeds[ci])
-            i=0
-            for ind in inds:
-                if ind>-1:
-                    belonging[ind] = ci + 1
-                else:
-                    print('could not find '+self.deckSeeds[ci][i])
-                i=i+1
         
+        deckSeeding=[self.cards.findCards(self.deckSeeds[i]) for i in range(len(self.deckSeeds))]
+
         classes=cards.classes()
         comanderClasses=classes[commanderIndexes]
         updatedBelonging = findNetworks2(classes,comanderClasses,commanderPoolsByIdentity,\
-            -1*distCardMatch, belonging, sourceInfo, self.cardTypeBalance )
+            -1*distCardMatch, deckSeeding, sourceInfo, self.cardTypeBalance )
 
         d=0
         self.deckNames=[]

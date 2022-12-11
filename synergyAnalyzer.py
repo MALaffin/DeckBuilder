@@ -402,78 +402,92 @@ def findNetworks(synergy, constraints, iterations=5, maxDeckPool=50):
             print(str(notSet) + ' not placed')
     return deckpools
 
-def findNetworks2(classes,comanderClasses,commanderPoolsByIdentity, synergy, constraints, sourceInfo, mannaCurve, format=100):
+def findNetworks2(classes,comanderClasses,commanderPoolsByIdentity, synergy, seededDecks, sourceInfo, mannaCurvePDF, format=100):
     # networks will be deck seeds grown off of synergy
     # growth will be near exponential, so 5 iterations will likely fill up the decks
     # constraints will be size dim 1 of synergy
     # it will contain positive numbers for required deck and negative values for
     # those that must eventually be connected; if not connected after iteration need error
-    connections = np.array(constraints).flatten()
-    deckCount = len(comanderClasses)  
-    deckpools = [[] for i in range(deckCount+1)]
-    for c in range(1, deckCount + 1):
-        temp = np.nonzero(connections == c)
-        cards = temp[0]
-        deckpools[c-1] = cards.tolist()
+    
+    #core deck, land, 1 or less, 2 or less, 3 or less, 4 or less
+
+    deckCount = len(comanderClasses) 
+    cardCount = synergy.shape[0]    
+    typeMatches=[classes.astype(int)&comanderClasses[commander].astype(int) for commander in range(deckCount)]
+    makesMana=sourceInfo[:,0]>0
+
+    updatedDecks = [[] for commander in range(deckCount+1)]
+    for commander in range(deckCount):
+        updatedDecks[commander] = seededDecks[commander].copy() 
+
+    #start with color identity but remove used
+    remainingPool=commanderPoolsByIdentity.copy()
+    for cmdr in range(deckCount):
+        for crd in updatedDecks[cmdr]:
+            remainingPool[:,crd]=-float('inf')
+
     for iteration in range(format):
         print('iteration ' + str(iteration))           
-        for c in range(1, deckCount + 1):
-            deckSize = np.sum(connections == c)
-            #if deckSize>iteration:
-            #    continue
+        for commander in range(0, deckCount):            
+            
+            #seeding may cause some to be done before others
+            deckSize = len(updatedDecks[commander])
             if deckSize>=format:
-                if deckSize>format:
+                if deckSize>format:#check for invalid size
                     print("size error")
                 continue
+            
             #validate colors       
-            allowed=0+commanderPoolsByIdentity[c-1,:]
+            #remainging pool should be zero for valid entries and -inf for invalid entries
+            #The conventions use max with -inf instead filters on boolean
+            #each condition can remove more entries 
+            # and the final selection will update remainingPool for the next cycle
+            allowed=remainingPool[commander,:].copy()
             if(sum(allowed==0)==0):
-                print("none allowed")
-            #cant use a card twice
-            allowed[connections > 0] = -float('inf')
+                print("none allowed at loop initialization")         
+            
+            # force required cards first     
+            numStillRequired = np.sum(allowed[typeMatches[commander]>0]==0)
+            if numStillRequired>0:       
+                allowed[0==typeMatches[commander]] = -float('inf')
             if(sum(allowed==0)==0):
-                print("none allowed")
-            if deckSize < mannaCurve[0]:#allow cards by mana curve next                
-                # allow required cards first     
-                numStillRequired = np.sum(np.logical_and(connections == 0, classes.astype(int)&comanderClasses[c-1].astype(int)))
-                if numStillRequired>0:       
-                    allowed[0==(classes.astype(int)&comanderClasses[c-1].astype(int))] = -float('inf')
-                else:
-                    allowed[sourceInfo[:,0]>0]=-float('inf')
-                if(sum(allowed==0)==0):
-                    print("none allowed")
-            else:
-                #must make manna
-                allowed[sourceInfo[:,0]<1]=-float('inf')
-                if(sum(allowed==0)==0):
-                    print("none allowed")
-                if deckSize < mannaCurve[1]:#sort by casting cost
-                    allowed[sourceInfo[:,1]>0]=-float('inf')
-                elif deckSize < mannaCurve[2]:
-                    allowed[sourceInfo[:,1]>1]=-float('inf')
-                elif deckSize < mannaCurve[3]:
-                    allowed[sourceInfo[:,1]>2]=-float('inf')
-                elif deckSize < mannaCurve[4]:
-                    allowed[sourceInfo[:,1]>3]=-float('inf')
-                elif deckSize < mannaCurve[5]:
-                    allowed[sourceInfo[:,1]>4]=-float('inf')
+                print("none allowed at required filter check")
+                
+            # focre required mana curve cards at a lower priority
+            mcRequired=0
+            if(not numStillRequired):
+                mannaCurve=[ 0 for mc in range(len(mannaCurvePDF))]
+                for mc in range(1,len(mannaCurvePDF)):#cards;land;1rocks;2rocks;3rocks;4rocks...
+                    mannaCurve[mc]=np.sum(\
+                        sourceInfo[updatedDecks[commander],1]==(mc-1) \
+                        )
+                    if mannaCurve[mc]<mannaCurvePDF[mc]:#if there enough mana makers in a class
+                        mcRequired=mc
+                mannaCurve[0]=deckSize-sum(mannaCurve)#helps debug counts
+                if(mcRequired>0):
+                    allowed[~makesMana]=-float('inf')#disable non-mana sources
+                    for mc in range(mcRequired+1,len(mannaCurvePDF)):
+                        allowed[sourceInfo[:,1]==mc]=-float('inf')#disable high cost mana sources
             if(sum(allowed==0)==0):
-                print("none allowed")
-            temp = np.nonzero(connections == c)
-            cards = temp[0]
-            deckSynergy=np.mean(synergy[cards, :], axis=0)
+                print("none allowed at mana curve check")
+
+            deckSynergy=np.mean(synergy[updatedDecks[commander], :], axis=0)
             connect = np.argmax(deckSynergy + allowed)
-            connections[connect] = c
-            deckpools[c-1].append(connect)
-            #print(str(c) + ' started with ' + str(deckSize) + ' and ended with ' + str(np.sum(connections == c)))
+            updatedDecks[commander].append(connect)
+            remainingPool[:,connect]=-float('inf')
     
-    temp = np.nonzero(connections < 0)
-    cards = temp[0]
-    deckpools[deckCount]=cards
-    if len(cards)>0:
-        notSet = len(cards)
+    #look for unused cards; likley implies more companders are needed
+    leftOvers = []
+    for cmdr in range(0, deckCount):
+        for c in range(cardCount):
+            if typeMatches[cmdr][c]>0:
+                if(remainingPool[cmdr,c]==0):
+                    leftOvers.append(c)
+    updatedDecks[deckCount]=leftOvers
+    if len(leftOvers)>0:
+        notSet = len(leftOvers)
         print(str(notSet) + ' not placed')
-    return deckpools
+    return updatedDecks
 
 
 def findDecksGA(synergy, constraints, iterations=5, maxDeckPool=50):

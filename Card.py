@@ -88,7 +88,8 @@ class Card:
             .replace('is every creature type', 'changeling') \
             .replace('.', '') \
             .replace('{t}', 'tap untap') \
-            .replace('sacrifice', 'sacrifice graveyard')
+            .replace('sacrifice', 'sacrifice graveyard') \
+            .replace('each basic land type', 'eachBasicLandType {w} {u} {b} {r} {g}')
         #use checkCards.py to check for some less useful words
         #roughly 300000 words;
         # #1/3 in top 100 but only ~10000 per biggest
