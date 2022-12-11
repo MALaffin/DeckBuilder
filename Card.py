@@ -7,7 +7,8 @@ import numpy as np
 class Card:
 
     ParseTextEnabled=True
-    CardVersion_dontChangeAtRuntime=15
+    CardVersion_dontChangeAtRuntime=16
+
 
     def RemoveReminders(self,text):
         text2=text
@@ -90,7 +91,7 @@ class Card:
             .replace('.', '') \
             .replace('{t}', 'tap untap') \
             .replace('sacrifice', 'sacrifice graveyard') \
-            .replace('each basic land type', 'eachBasicLandType {w} {u} {b} {r} {g}')
+            .replace('for each basic land type among lands you control', 'domain {w} {u} {b} {r} {g}')
         #use checkCards.py to check for some less useful words
         #roughly 300000 words;
         # #1/3 in top 100 but only ~10000 per biggest
@@ -427,15 +428,16 @@ class Card:
         return -bestCost
 
     def ColorID(self):
+        #ment for typical dragons... cards like wildfires will be improperly marked
         if self.manacost :
             MC=self.manacost
         else:
             MC=""
-        w="{W" in self.text or "W}" in self.text or "W" in MC or 'Plains' in self.text
-        u="{U" in self.text or "U}" in self.text or "U" in MC or 'Island' in self.text
-        b="{B" in self.text or "B}" in self.text or "B" in MC or 'Swamp' in self.text
-        r="{R" in self.text or "R}" in self.text or "R" in MC or 'Mountain' in self.text
-        g="{G" in self.text or "G}" in self.text or "G" in MC or 'Forest' in self.text
+        w="{W" in self.text or "W}" in self.text or "W" in MC or 'Plains' in self.text or 'Domain' in self.text
+        u="{U" in self.text or "U}" in self.text or "U" in MC or 'Island' in self.text or 'Domain' in self.text
+        b="{B" in self.text or "B}" in self.text or "B" in MC or 'Swamp' in self.text or 'Domain' in self.text
+        r="{R" in self.text or "R}" in self.text or "R" in MC or 'Mountain' in self.text or 'Domain' in self.text
+        g="{G" in self.text or "G}" in self.text or "G" in MC or 'Forest' in self.text or 'Domain' in self.text
         id=0;
         if w:
             id=id+1

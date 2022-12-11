@@ -488,7 +488,7 @@ if __name__ == '__main__':
     names = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch'
         , 'Scion of the Ur-Dragon', 'Teneb, the Harvester'
         , 'Dragonsoul Knight', 'Bogardan Dragonheart'
-        , 'Lathliss, Dragon Queen']
+        , 'Lathliss, Dragon Queen', 'Draco']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
     cp=CardProject(namedCards=names,fine=False,simWeight=0)
