@@ -7,7 +7,7 @@ import numpy as np
 class Card:
 
     ParseTextEnabled=True
-    CardVersion_dontChangeAtRuntime=16
+    CardVersion_dontChangeAtRuntime=17
 
 
     def RemoveReminders(self,text):
@@ -70,7 +70,19 @@ class Card:
             #text = text.replace(name, allTypes)
             text = text.replace(name, "cardname")
         
-        text=self.RemoveReminders(text)
+        text=self.RemoveReminders(text)#keywords should be enough
+
+        #basic land types have abilities in reminders (not good enough)
+        if self.subtypes.find("Plains")>-1:
+            text=text+"\r\n{t}:{w}"
+        if self.subtypes.find("Island")>-1:
+            text=text+"\r\n{t}:{u}"
+        if self.subtypes.find("Swamp")>-1:
+            text=text+"\r\n{t}:{b}"
+        if self.subtypes.find("Mountain")>-1:
+            text=text+"\r\n{t}:{r}"
+        if self.subtypes.find("Forest")>-1:
+            text=text+"\r\n{t}:{g}"
 
         text = text.replace('end of turn', 'endOfTurn') \
             .replace('this turn', 'thisTurn') \

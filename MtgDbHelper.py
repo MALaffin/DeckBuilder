@@ -18,7 +18,7 @@ class MtgDbHelper: #static class effectively an interface to mySQL
     def __MakeFull(cls):
         data_url = 'https://mtgjson.com/api/v5/AllPrintings.json'
         file = MtgDbHelper.saveLocation+'AllPrintings.json'
-        os.remove(file) 
+        #os.remove(file) 
         setupDB(data_url,file,cls.dbName)
         #in case one becomes corrupted, make some backups
         now = datetime.today().strftime('%Y%m%d')
@@ -91,7 +91,9 @@ class MtgDbHelper: #static class effectively an interface to mySQL
                     (text LIKE '%creature token%')
                     AND (text LIKE '%Changeling%')
                 )
-                OR (name = 'Reaper King') 
+                OR (name = 'Reaper King')
+                OR (name = "Volrath's Laboratory")
+                OR (name = 'Riptide Replicator')
             )""" #(is or makes) changeling creature 
             #with Reaper King via the userper exception
             #consider including the remaining changeling spells/artifacts
