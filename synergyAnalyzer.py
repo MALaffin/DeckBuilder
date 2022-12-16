@@ -272,8 +272,64 @@ def findBasis2(dist, basisSize, factor=.99):
     plt.show(block=False)
     return basis
 
+def L2dist(vectors):
+    V=vectors.transpose()
+    dims = np.shape(vectors)[0]
+    N = np.shape(vectors)[1]
+    dist=np.zeros((N,N))
+    for r in range(N):#candidate for parallelization
+        if r % 32 == 0:
+            print('dist '+str(r/N*100) + '% of '+str(N))
+        cols=range(r+1,N)
+        delta=V[cols,:]-V[r,:]
+        dist[r,cols]=np.linalg.norm(delta,axis=1)
+    for r in range(N):
+        cols=range(r)
+        dist[r,cols]=dist[cols,r].transpose()
+    return dist
 
-def findBasis3(dist, basisSize, factor=.99):
+class DiffHelper:
+    def __init__(self,vectors):
+        self.V=vectors.transpose()
+
+    V=[]
+
+    def subL2distPar(self,r):
+        #print(str(r))
+        N = np.shape(self.V)[0]
+        dims = np.shape(self.V)[1]
+        cols=range(r+1,N)
+        delta=np.zeros((N-(r+1),dims))
+        for col in cols:
+            delta[col-cols[0],:]=self.V[col,:]-self.V[r,:]
+        ndelta=np.linalg.norm(delta,axis=1)
+        return [ndelta,r]
+
+    def L2distPar(self):
+        dims = np.shape(self.V)[1]
+        N = np.shape(self.V)[0]
+        dist=np.zeros((N,N))
+        t0=time()
+        with ProcessPoolExecutor(max_workers=6) as pool:
+            for res in pool.map(self.subL2distPar, range(N)):
+                ndelta=res[0]
+                r=res[1]
+                if r % 32 == 0:
+                    ind=r+1
+                    elapsedTime=(time()-t0)/3600
+                    remainingTime=elapsedTime/ind*(N-ind)
+                    self.lastMessage=str(ind/N*100) + "% time elapsed = "+str(elapsedTime)+"  remaining time =" +str(remainingTime)+" hours"
+                    print('dist '+str(ind) +' of ' +str(N)+' '+self.lastMessage)
+                cols=range(r+1,N)
+                dist[r,cols]=ndelta
+        for r in range(N):
+            cols=range(r)
+            dist[r,cols]=dist[cols,r].transpose()
+        return dist
+
+
+
+def findBasis3(dist, basisSize, factor=1):
     N = np.shape(dist)[0]
     W = np.sqrt(np.mean(np.square(dist), axis=0))
     candidates = np.flip(np.argsort(W))
@@ -282,6 +338,7 @@ def findBasis3(dist, basisSize, factor=.99):
     sizes = []
     errors = []
     lastErr = float('inf')
+    lastLastErr = float('inf')
     t = time()
     for test in range(N):
         if test == 0:
@@ -342,12 +399,14 @@ def findBasis3(dist, basisSize, factor=.99):
         if test % 50 == 0:
             plot(np.array(sizes).reshape([len(sizes), 1]), np.log(np.array(errors).reshape([len(sizes), 1])),
                  'basis size vs error', 'basis builder')
-        if len(basis) == basisSize:
+        smallStep=(lastErr-e)<e/N*factor #if the error does not account for <factor> cards worth of the remaining error it is not that important
+        lastErr=e;
+        if len(basis) == basisSize or smallStep:
             plt.show(block=False)
             return basis
     plot(np.array(sizes).reshape([len(sizes), 1]), np.log(np.array(errors).reshape([len(sizes), 1])),
          'basis size vs error', 'basis builder')
-    plt.show()#plt.show(block=True)
+    plt.show(block=False)
     return basis
 
 

@@ -25,9 +25,7 @@ class CardProject:
         ,resetTrainedCardMatch = None 
         ,namedCards = None 
         ,MatchType=1
-        ,simWeight=0.25 
-        ,IconicSize = 200 
-        ,BasisSize = 125 
+        ,BasisSize = -1 
         ,fine = False 
         ,label = 'Version'+str(Card.CardVersion_dontChangeAtRuntime)+"/"
         ,coresAllowed=7 
@@ -49,8 +47,6 @@ class CardProject:
 
         #options
         self.MatchType=MatchType
-        self.simWeight=simWeight
-        self.IconicSize = IconicSize
         self.BasisSize = BasisSize
         self.fine = fine
         self.label = label
@@ -121,8 +117,8 @@ class CardProject:
             cardMatch=self.CardMatch 
         cards=self.cards
         fig, (ax1) = plt.subplots(nrows=1, figsize=(4, 4))
-        h = ax1.imshow(cardMatch, extent=[.5, cardMatch.shape[1] + .5, .5, cardMatch.shape[0] + .5], vmin=-1.001,
-                    vmax=0.001, aspect='auto',origin='lower')
+        h = ax1.imshow(cardMatch, extent=[.5, cardMatch.shape[1] + .5, .5, cardMatch.shape[0] + .5], 
+                     aspect='auto',origin='lower')#vmin=-1.001,vmax=0.001,
         plt.colorbar(h)
         ax1.set_title('cardMatch mean:' + str(np.mean(np.mean(cardMatch)))
                             +' max: ' + str(np.max(np.max(cardMatch))))
@@ -233,17 +229,17 @@ class CardProject:
 
         fname0 = 'CardInfo.' + str(numCards) + str(self.fine) 
         
-        fname = fname0 + '.Weighted' + str(self.simWeight)+'.pkl'
-        weightedLoc = baseLocation+ fname
-        weightedLoc0 = ramLocation+ fname 
-        if exists(weightedLoc):
-            shutil.copyfile(weightedLoc, weightedLoc0)
-        if not resetRawCardMatch and exists(weightedLoc0):
-            with open(weightedLoc0, 'rb') as file:
-                rawCardMatch = dill.load(file)
+        fname = fname0 + '.Merged.pkl'
+        vectorLoc = baseLocation+ fname
+        vectorLoc0 = vectorLoc
+        #vectorLoc0 = ramLocation+ fname 
+        #if exists(vectorLoc) and not exists(vectorLoc0):
+        #    shutil.copyfile(vectorLoc, vectorLoc0)
+        if not resetRawCardMatch and exists(vectorLoc0):
+            with open(vectorLoc0, 'rb') as file:
+                rawCardVector = dill.load(file)
                 file.close()
-        else:        
-            
+        else:
             synergies=[]
             for simType in range(3):
                 fname= fname0+ '.SimType'+str(simType)+'.pkl'
@@ -264,7 +260,7 @@ class CardProject:
                     synergy = cards.synergy3()
                     elapsed2 = time() - t
                     full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
-                    print(f"rawCardMatch for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
+                    print(f"rawCardVector for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
                     with open(synergyLoc, "wb") as f:
                         dill.dump(synergy, f)
                         f.close()
@@ -272,20 +268,52 @@ class CardProject:
                 synergies.append(synergy)
                 del synergy 
             
-            #rawCardMatch=np.maximum((1-self.simWeight)*np.maximum(synergies[0],np.transpose(synergies[0])),self.simWeight*np.maximum(synergies[1],synergies[2]))
-            #rawCardMatch=np.minimum((1-self.simWeight)*np.minimum(synergies[0],np.transpose(synergies[0])),self.simWeight*np.minimum(synergies[1],synergies[2]))
-            #rawCardMatch=(1-self.simWeight)*np.minimum(synergies[0],np.transpose(synergies[0])) + self.simWeight*np.minimum(synergies[1],synergies[2])
-            rawCardMatch=(1-self.simWeight)*np.maximum(synergies[0],np.transpose(synergies[0])) + self.simWeight*np.maximum(synergies[1],synergies[2])
+            rawCardVector=np.concatenate((synergies[0],synergies[1],synergies[2]))
             del synergies
-            with open(weightedLoc, "wb") as f:
-                dill.dump(rawCardMatch, f)
+            with open(vectorLoc, "wb") as f:
+                dill.dump(rawCardVector, f)
                 f.close()
             
             gc.collect()
 
         
+        
+        # looking for a distance function... rawCardVector as the base so I don't need to use Levenstein on raw text again
+    
+        iconLoc = vectorLoc.replace('.pkl',  '.IS' + str(self.BasisSize)+'.pkl')
+        #iconLoc0 = vectorLoc0.replace('.pkl',  '.IS' + str(self.BasisSize)+'.pkl')
+        if self.MatchType==0:
+            TrainedCardMatchLoc = iconLoc.replace('.pkl', '.HeuristicMatch.pkl')
+        else:
+            TrainedCardMatchLoc = iconLoc.replace('.pkl', '.TrainedCardMatch.pkl')
+        pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
+        distCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.dist.pkl')
+        deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
+            
+
+        iconLoc0=iconLoc
+        #if exists(iconLoc) and not exists(iconLoc0):
+        #    shutil.copyfile(iconLoc, iconLoc0)
+        if not self.resetIcons and exists(iconLoc0):
+            with open(iconLoc0, 'rb') as file:
+                iconInfo = dill.load(file)
+                file.close()
+            iconicCards=iconInfo[0]
+        else:
+            df=DiffHelper(rawCardVector)
+            cardDist = df.L2distPar()#todo: fix why this takes hours
+            iconicCards = findBasis3(cardDist, self.BasisSize,1)
+            iconicCardsNames=MtgDbHelper.cards.namesByInds(iconicCards)
+            iconInfo=[iconicCards,iconicCardsNames]
+            with open(iconLoc, "wb") as f:
+                dill.dump(iconInfo, f)
+                f.close()
+
         if numCards == -1:#helpful debug routines but skip the training
-            self.CardMatch=rawCardMatch;
+            R=rawCardVector.shape[1]
+            tmp=np.maximum(rawCardVector[0:R,:],rawCardVector[0:R,:].transpose())
+            tmp=np.maximum(tmp,np.maximum(rawCardVector[R:2*R,:],rawCardVector[2*R:3*R,:]))
+            self.CardMatch=tmp;
             #self.debugCost(-1,0)
             #self.debugCost(-1,1)
             #self.debugCost(-1,2)
@@ -299,33 +327,13 @@ class CardProject:
             self.deckNames=[f for f in listdir(location) if isfile(join(location, f))]
             return
 
-        
-        # looking for a distance function... rawCardMatch as the base so I don't need to use Levenstein on raw text again
-    
-        iconLoc = weightedLoc.replace('.pkl',  '.IS' + str(self.IconicSize)+'.pkl')
-        inputsLoc = weightedLoc.replace('.pkl', '.TrainingSetup'+str(self.BasisSize)+'inputs.pkl')
-        TrainedCardMatchLoc = inputsLoc.replace('.pkl', '.TrainedCardMatch.pkl')
-        pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
-        distCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.dist.pkl')
-        deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
-            
-
-        if not self.resetIcons and exists(iconLoc):
-            with open(iconLoc, 'rb') as file:
-                iconicCards = dill.load(file)
-                file.close()
-        else:
-            cardDist = np.corrcoef(rawCardMatch)  # np.cov(rawCardMatch)
-            np.nan_to_num(cardDist, copy=False, nan=0)
-            iconicCards = findBasis3(cardDist, self.IconicSize)
-            with open(iconLoc, "wb") as f:
-                dill.dump(iconicCards, f)
-                f.close()
-
         if self.MatchType==0:
-            cardMatch=rawCardMatch;
-            del rawCardMatch
-            deckBase=weightedLoc.replace('.pkl','.Deck.')
+            R=rawCardVector.shape[1]
+            cardMatch=np.maximum(rawCardVector[0:R,:],rawCardVector[0:R,:].transpose())
+            cardMatch=np.maximum(cardMatch,np.maximum(rawCardVector[R:2*R,:],rawCardVector[2*R:3*R,:]))
+            del iconInfo
+            del rawCardVector
+            deckBase=vectorLoc.replace('.pkl','.Deck.')
         else:    
            
             if not self.resetTrainedCardMatch and exists(TrainedCardMatchLoc):
@@ -333,8 +341,8 @@ class CardProject:
                     trainedCardMatch = dill.load(file)
                     file.close()
             else:
-                if not self.resetInputs and exists(inputsLoc):
-                    with open(inputsLoc, 'rb') as file:
+                if not self.resetInputs and exists(iconLoc):
+                    with open(iconLoc, 'rb') as file:
                         items = dill.load(file)
                         file.close()
                     X = items['X']
@@ -347,13 +355,13 @@ class CardProject:
 
                     iconicCards = iconicCards[0:self.BasisSize]
                     BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
-                    if exists(weightedLoc):
-                        shutil.copyfile(weightedLoc, weightedLoc0)
-                    with open(weightedLoc0, 'rb') as file:
-                        rawCardMatch = dill.load(file)
+                    if exists(vectorLoc):
+                        shutil.copyfile(vectorLoc, vectorLoc0)
+                    with open(vectorLoc0, 'rb') as file:
+                        rawCardVector = dill.load(file)
                         file.close()
-                    cardDesciptions = rawCardMatch[iconicCards, :]
-                    del rawCardMatch
+                    cardDesciptions = rawCardVector[iconicCards, :]
+                    del rawCardVector
 
                     #combos = getKnownCombos(genPairs=True, addGarbage=True)
                     combos = getKnownCombosAndDeck(genPairs=True, addGarbage=True)
@@ -379,7 +387,7 @@ class CardProject:
                     items['iconicCards'] = iconicCards
                     items['cardDesciptions'] = cardDesciptions
                     items['BasisCards'] = BasisCards
-                    with open(inputsLoc, "wb") as f:
+                    with open(iconLoc, "wb") as f:
                         dill.dump(items, f)
                         f.close()
 
@@ -414,6 +422,8 @@ class CardProject:
                 PCAscore = dill.load(file)
                 file.close()
         else:
+            t0=time()
+            print('started eig')
             w, v = np.linalg.eig(self.CardMatch)
             PCAscore=self.CardMatch*v
             del v
@@ -421,6 +431,7 @@ class CardProject:
             with open(pcaCardMatchLoc, "wb") as f:
                 dill.dump(PCAscore, f)
                 f.close()
+            print('eig done after '+str((time()-t0)/60) + ' minutes')
         self.PCAscore=PCAscore
 
         if not self.resetTrainedCardMatch and exists(distCardMatchLoc):
@@ -491,5 +502,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=names,fine=False,simWeight=0)
+    cp=CardProject(namedCards=names,fine=False)
     cp.createOrLoadData()

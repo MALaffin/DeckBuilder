@@ -129,6 +129,12 @@ class CardSet:
             cards = cards + [self.internalSet[ind]]
         return CardSet(cards)
 
+    def namesByInds(self, inds):
+        cards = []
+        for ind in inds:
+            cards = cards + [self.internalSet[ind].name]
+        return cards
+
     def sortCardsByType(self, types):
         groups = self.partitionCardsByType(types)
         inds = [];
