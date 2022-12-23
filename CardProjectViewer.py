@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import ttk
+from tkinter import filedialog as fd
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
@@ -17,7 +18,10 @@ class CardProjectViewer:
 
         #load decks
         self.button = Button(self.mainWindow, text="Load", command=self.SetupCardProject)
-        self.button.place(relx=0.05, rely=0.05,relwidth=0.1, relheight=0.05)
+        self.button.place(relx=0.05, rely=0.05,relwidth=0.09, relheight=0.05)
+        #load deck
+        self.adddeck = Button(self.mainWindow, text="Load Deck", command=self.setupdeck)
+        self.adddeck.place(relx=0.16, rely=0.05,relwidth=0.09, relheight=0.05)
         #select decks
         self.decks = Listbox(self.mainWindow)#,justify="right")
         self.decks.place(relx=.05, rely=0.15,relwidth=0.2, relheight=0.2)
@@ -69,18 +73,22 @@ class CardProjectViewer:
         dn=self.decks.curselection()
         if len(dn) == 0:
             return
+        self.decks.selection_get()
         if(dn==0):
             decks=self.CP.deckNames
         else:
-            decks=[self.CP.deckNames[dn[0]-1]]
+            decks=[self.decks.selection_get()]
         self.cards.delete(0,END)
         for dn in decks:
-            with open(dn, "r") as f:
-                name=f.readline().replace('\n',"")
-                while name:
-                    self.cards.insert(END,name)
+            if not (".cod" in dn):
+                with open(dn, "r") as f:
                     name=f.readline().replace('\n',"")
-            f.close()
+                    while name:
+                        self.cards.insert(END,name)
+                        name=f.readline().replace('\n',"")
+                f.close()
+            else:
+                print("TODO: read cocatrice deck")
 
     def updateCard(self):
         cs=self.cards.curselection()
@@ -143,6 +151,12 @@ class CardProjectViewer:
         self.plt1.set_xlabel(cardX.name)
         self.plt1.set_ylabel(cardY.name)
         self.canvas.draw()
+
+    def setupdeck(self): 
+        #file dialog and add to decks
+        names=fd.askopenfilenames(initialdir="/media/VMShare/")
+        for dn in names:
+            self.decks.insert(END,dn)
 
     def SetupCardProject(self): 
         self.button.config(state=DISABLED) #while running disable it
