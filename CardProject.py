@@ -35,6 +35,8 @@ class CardProject:
         #manage major objects to backup
         self.baseLocation=baseLocation
         self.ramLocation=ramLocation
+        
+        #todo: resets okay for debug, but are cluttering code now; consider removing them
         self.resetDB= resetDB
         self.resetRawCardMatch = resetRawCardMatch if resetRawCardMatch else self.resetDB
         self.resetIcons = resetIcons if resetIcons else self.resetRawCardMatch
@@ -285,6 +287,7 @@ class CardProject:
         if self.MatchType==0:
             TrainedCardMatchLoc = iconLoc.replace('.pkl', '.HeuristicMatch.pkl')
         else:
+            modelCardMatchLoc = iconLoc.replace('.pkl', '.TrainedCardMatch.model/')
             TrainedCardMatchLoc = iconLoc.replace('.pkl', '.TrainedCardMatch.pkl')
         pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
         distCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.dist.pkl')
@@ -308,6 +311,7 @@ class CardProject:
             with open(iconLoc, "wb") as f:
                 dill.dump(iconInfo, f)
                 f.close()
+        self.BasisIndexes=iconicCards[0:self.BasisSize]
 
         if numCards == -1:#helpful debug routines but skip the training
             R=rawCardVector.shape[1]
@@ -335,93 +339,84 @@ class CardProject:
             del rawCardVector
             deckBase=vectorLoc.replace('.pkl','.Deck.')
         else:    
-           
+            #training strategy notes:
+            # card matching heuristic is used to build decks from a pairwise matrix
+            #  I want to influence scores with my own decks and any of my own combos
+            #  Scores should reflect three? states:
+            #  1) synergistic combos - typically infinite game enders
+            #  2) similar - ideally they add redundancy to combos
+            #  3) unrelated - cards that should not be included
+            # 1 - synergy to be manually identified combos
+            # 0.1 - similarity to be identified by existing decks
+            # 0 - likely want to find several hundered awful cards; pick them from the basis
+            # synergy is a set measure measurment, not a card measurment
+            # training data likely to include ~2k  cards to be compared against itself
+            # Use basis to prune vector to length of 700*3
+            # training input~ 2k x 2k pairs * 2 vectors of 2k * 8bytes
+            # 128GB training data; (used to bae <1/3 of this with other plans)
+            # need to train with chunks of data 
+
+
             if not self.resetTrainedCardMatch and exists(TrainedCardMatchLoc):
                 with open(TrainedCardMatchLoc, 'rb') as file:
                     trainedCardMatch = dill.load(file)
                     file.close()
             else:
-                if not self.resetInputs and exists(iconLoc):
-                    with open(iconLoc, 'rb') as file:
-                        items = dill.load(file)
-                        file.close()
-                    X = items['X']
-                    V = items['V']
-                    combos = items['combos']
-                    iconicCards = items['iconicCards']
-                    cardDesciptions = items['cardDesciptions']
-                    BasisCards = items['BasisCards']
-                else:
+                deckAndCombos=[];
+                location = '/media/VMShare/TrainingInfo/Decks/'
+                from os import listdir
+                from os.path import isfile, join
+                onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
+                decks = []
+                for file in onlyfiles:
+                    CD=CockatriceDeck()
+                    CD.load(location + file)
+                    deckAndCombos=deckAndCombos+CD.cardSetIndexes
+                    decks.append(CD.cardSetIndexes)
+                
+                location = '/media/VMShare/TrainingInfo/Combos/'
+                from os import listdir
+                from os.path import isfile, join
+                onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
+                combos = []
+                for file in onlyfiles:
+                    CD=CockatriceDeck()
+                    CD.loadText(location + file)
+                    deckAndCombos=deckAndCombos+CD.cardSetIndexes
+                    combos.append(CD.cardSetIndexes)
 
-                    iconicCards = iconicCards[0:self.BasisSize]
-                    BasisCards = CardSet([cards.internalSet[i] for i in iconicCards])
-                    if exists(vectorLoc):
-                        shutil.copyfile(vectorLoc, vectorLoc0)
-                    with open(vectorLoc0, 'rb') as file:
-                        rawCardVector = dill.load(file)
-                        file.close()
-                    cardDesciptions = rawCardVector[iconicCards, :]
-                    del rawCardVector
+                location = '/media/VMShare/TrainingInfo/Chaff/'
+                from os import listdir
+                from os.path import isfile, join
+                onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
+                chaff = []
+                for file in onlyfiles:
+                    CD=CockatriceDeck()
+                    CD.loadText(location + file)
+                    inds=MtgDbHelper.cards.findCards( CD.cardSet.getNames())
+                    for ind in inds:
+                        if not ind in deckAndCombos:
+                            chaff.append(ind)
 
-                    #combos = getKnownCombos(genPairs=True, addGarbage=True)
-                    combos = getKnownCombosAndDeck(genPairs=True, addGarbage=True)
-                    icons = len(iconicCards)
-                    icons2 = icons * 2
-                    X = np.zeros([2 * len(combos), icons2])
-                    V = np.zeros([2 * len(combos), 1])
-                    scale=0.125
-                    for c in range(len(combos)):
-                        if c % 10000 == 0:
-                            print('making model loop ' + str(c) + ' of ' + str(len(combos)))
-                        comboInds = cards.findCards(combos[c][1])
-                        X[c, 0:icons] = cardDesciptions[:, comboInds[0]]
-                        X[c, icons:icons2] = cardDesciptions[:, comboInds[1]]
-                        V[c, 0] = combos[c][0] ** scale
-                        X[c + len(combos), 0:icons] = cardDesciptions[:, comboInds[1]]
-                        X[c + len(combos), icons:icons2] = cardDesciptions[:, comboInds[0]]
-                        V[c + len(combos), 0] = combos[c][0] ** scale
-                    items = dict()
-                    items['X'] = X
-                    items['V'] = V
-                    items['combos'] = combos
-                    items['iconicCards'] = iconicCards
-                    items['cardDesciptions'] = cardDesciptions
-                    items['BasisCards'] = BasisCards
-                    with open(iconLoc, "wb") as f:
-                        dill.dump(items, f)
-                        f.close()
+                LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
+                N=rawCardVector.shape[1]
+                reducedVector=np.concatenate(
+                    (rawCardVector[self.BasisIndexes,:],
+                    rawCardVector[[s+N for s in self.BasisIndexes],:],
+                    rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
+                trainedCardMatch = LS.trainModel2(reducedVector,chaff,decks,combos)
 
-                icons = len(iconicCards)
-                icons2 = icons * 2
-                LS = LearnedSynergy([icons2, 1])
-                LS.trainModel(X, V)
-                N = len(cards.internalSet)
-                trainedCardMatch = np.zeros([N, N])
-                for x in range(N):
-                    if x % round(N / 1000) == 0:
-                        print('using model loop ' + str(x) + ' of ' + str(N))
-                    X2 = np.zeros([N, icons2])
-                    for y in range(N):
-                        X2[y, 0:icons] = cardDesciptions[:, x]
-                        X2[y, icons:icons2] = cardDesciptions[:, y]
-                    trainedCardMatch[x, :] = LS.useModel(X2)[:, 0]
-                with open(TrainedCardMatchLoc, "wb") as f:
-                    dill.dump(trainedCardMatch, f)
-                    f.close()
-
-            cardMatch = trainedCardMatch + trainedCardMatch.transpose()
+            cardMatch = (trainedCardMatch + trainedCardMatch.transpose())/2
             del trainedCardMatch
 
-        self.BasisIndexes=iconicCards[0:self.BasisSize]
-
         self.CardMatch=cardMatch
-
 
         if not self.resetTrainedCardMatch and exists(pcaCardMatchLoc):
             with open(pcaCardMatchLoc, 'rb') as file:
                 PCAscore = dill.load(file)
                 file.close()
         else:
+            #todo: cosider finding v from basis for reusability and speed
             t0=time()
             print('started eig')
             w, v = np.linalg.eig(self.CardMatch)
@@ -434,25 +429,28 @@ class CardProject:
             print('eig done after '+str((time()-t0)/60) + ' minutes')
         self.PCAscore=PCAscore
 
-        if not self.resetTrainedCardMatch and exists(distCardMatchLoc):
-            with open(distCardMatchLoc, 'rb') as file:
-                distCardMatch = dill.load(file)
-                file.close()
-        else:
-            distCardMatch=0*cardMatch;
-            N=cardMatch.shape[0]
-            for c in range(N):#candidate for parallelization
-                if c % 32 == 0:
-                    print('dist '+str(c/N*100) + '% of '+str(N))
-                vs=cardMatch-cardMatch[:,c];
-                vs=vs**2
-                distCardMatch[c,:]=vs.sum(axis=1).reshape(1,N)
-            for r in range(N):
-                for c in range(r,N):
-                    distCardMatch[r,c]=distCardMatch[c,r]            
-            with open(distCardMatchLoc, "wb") as f:
-                dill.dump(distCardMatch, f)
-                f.close()
+        #distance should not be neeeded for the matching based deck builder
+        #also when distance was used, it was used with a negaive
+        #not maybe prior bugs in deck building made -dist better than match
+        # if not self.resetTrainedCardMatch and exists(distCardMatchLoc):
+        #     with open(distCardMatchLoc, 'rb') as file:
+        #         distCardMatch = dill.load(file)
+        #         file.close()
+        # else:
+        #     distCardMatch=0*cardMatch;
+        #     N=cardMatch.shape[0]
+        #     for c in range(N):#candidate for parallelization
+        #         if c % 32 == 0:
+        #             print('dist '+str(c/N*100) + '% of '+str(N))
+        #         vs=cardMatch-cardMatch[:,c];
+        #         vs=vs**2
+        #         distCardMatch[c,:]=vs.sum(axis=1).reshape(1,N)
+        #     for r in range(N):
+        #         for c in range(r,N):
+        #             distCardMatch[r,c]=distCardMatch[c,r]            
+        #     with open(distCardMatchLoc, "wb") as f:
+        #         dill.dump(distCardMatch, f)
+        #         f.close()
 
         commanders=[];
         for dk in self.deckSeeds:
@@ -467,7 +465,7 @@ class CardProject:
         classes=cards.classes()
         comanderClasses=classes[commanderIndexes]
         updatedBelonging = findNetworks2(classes,comanderClasses,commanderPoolsByIdentity,\
-            -1*distCardMatch, deckSeeding, sourceInfo, self.cardTypeBalance )
+            cardMatch, deckSeeding, sourceInfo, self.cardTypeBalance )
 
         d=0
         self.deckNames=[]
@@ -502,5 +500,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=names,fine=False)
+    cp=CardProject(namedCards=None,MatchType = 1,fine=False)
     cp.createOrLoadData()
