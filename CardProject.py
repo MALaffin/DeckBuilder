@@ -406,10 +406,22 @@ class CardProject:
                     rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
                 trainedCardMatch = LS.trainModel2(reducedVector,chaff,decks,combos)
 
-            cardMatch = (trainedCardMatch + trainedCardMatch.transpose())/2
+            if False:
+                fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=0)
+                h = ax.imshow(trainedCardMatch, vmin=0,
+                  vmax=1, aspect='auto')
+                plt.show(block=False)
+
+            cardMatch = (trainedCardMatch + trainedCardMatch.transpose())/2-1
             del trainedCardMatch
 
         self.CardMatch=cardMatch
+
+        if False:
+            fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=2)
+            h = ax.imshow(cardMatch, vmin=-1,
+                vmax=0, aspect='auto')
+            plt.show(block=False)
 
         if not self.resetTrainedCardMatch and exists(pcaCardMatchLoc):
             with open(pcaCardMatchLoc, 'rb') as file:
