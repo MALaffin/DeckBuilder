@@ -290,7 +290,7 @@ def L2dist(vectors):
 
 class DiffHelper:
     def __init__(self,vectors):
-        self.V=vectors.transpose()
+        DiffHelper.V=vectors.transpose()
 
     V=[]
 
@@ -299,10 +299,24 @@ class DiffHelper:
         N = np.shape(self.V)[0]
         dims = np.shape(self.V)[1]
         cols=range(r+1,N)
-        delta=np.zeros((N-(r+1),dims))
-        for col in cols:
-            delta[col-cols[0],:]=self.V[col,:]-self.V[r,:]
-        ndelta=np.linalg.norm(delta,axis=1)
+        ##delta=np.zeros((N-(r+1),dims))
+        ##for col in cols:
+        ##    delta[col-cols[0],:]=DiffHelper.V[col,:]-DiffHelper.V[r,:]
+        #delta=DiffHelper.V[cols,:]-DiffHelper.V[r,:]
+        #ndelta2=np.linalg.norm(delta,axis=1)
+        #ndelta=np.zeros(N-(r+1))
+        #for col in cols:
+        #    for d in range(N):
+        #        delta=DiffHelper.V[col,d]-DiffHelper.V[r,d];
+        #        ndelta[col-cols[0]]=ndelta[col-cols[0]]+delta*delta
+        #    ndelta[col-cols[0]]=np.sqrt(ndelta[col-cols[0]]);
+        ndelta=np.zeros(N-(r+1))
+        for d in range(N):
+            delta=DiffHelper.V[cols,d]-DiffHelper.V[r,d];
+            ndelta=ndelta+delta*delta
+        ndelta=np.sqrt(ndelta);
+        #if(np.abs(np.mean(ndelta-ndelta2))>.001):
+        #    print("err")
         return [ndelta,r]
 
     def L2distPar(self):
@@ -310,7 +324,7 @@ class DiffHelper:
         N = np.shape(self.V)[0]
         dist=np.zeros((N,N))
         t0=time()
-        with ProcessPoolExecutor(max_workers=6) as pool:
+        with ProcessPoolExecutor(max_workers=7) as pool:
             for res in pool.map(self.subL2distPar, range(N)):
                 ndelta=res[0]
                 r=res[1]
@@ -580,3 +594,85 @@ def findLoops3(A0, maxiterations=16, numcombos=30):
         syn[used] = inf
 
     return combos
+
+def findBasis4(dist, basisSeeds, seedingType=0):
+    # 
+    # Basis Seeds will override the min distance search    
+    
+    distCpy=dist.copy()
+    if(len(basisSeeds)>0):
+        if seedingType==1:
+            dist2=dist[:,basisSeeds]
+            dist2=dist2[basisSeeds,:]
+            [seeds,clusterSizes]=findBasis4(dist2,[],-1)
+            exclude=[]
+            for s in range(len(basisSeeds)):
+                if not s in seeds:
+                    exclude.append(s)
+            basisSeeds=[basisSeeds[seed] for seed in seeds]
+            clustered=sum(clusterSizes)
+        else:
+            clusterSizes=[1 for seed in basisSeeds]
+        distCpy[basisSeeds,:]=np.Inf
+        distCpy[:,basisSeeds]=np.Inf
+        basis=basisSeeds
+        clustered=len(basisSeeds)
+    else:
+        basis=[]
+        clusterSizes=[]
+        clustered=0
+
+    #for a group of random samples, 
+    # the distance between points is smallest where 
+    # the pdf is highest
+    #the FWHM of a distribution would be where the
+    # distance is double of the minimumum
+    # similar relationships should exist for other widths
+    #heuristic will start with the densest location
+    # and cluster all points within the 3std limit
+    # then repeat for next highest density.
+    # it is possible for very large groups to get multiple sub-clusters 
+    #todo: consider an average of X to make it a more stable...
+    # 
+    # Basis Seeds will override the min distance search    
+    STDs=5
+    #DIMS=1#todo: consider non-1-D density assumptions
+    #densityRatio=np.exp(-0.5*DIMS*STDs**2)
+    #(dist(A,B)/std)^2~chi2(2); dist(A,B)/std best est for k=2
+    #dist/2~std
+
+
+    N = np.shape(dist)[0]
+    for ind in range(N):
+        distCpy[ind,ind]=np.Inf
+    used=[False for ind in range(N)]
+    while clustered<N:
+        minLoc=np.unravel_index(np.argmin(distCpy, axis=None), distCpy.shape)
+        minDist=distCpy[minLoc[0],minLoc[1]]
+        if(np.isinf(minDist)): #either large costs of unique elements
+            for ind in range(N):
+                if(not used[ind]):
+                    distCpy[:,ind]=np.Inf
+                    distCpy[ind,:]=np.Inf
+                    clusterSizes.append(1)
+                    clustered = clustered + 1
+        else:
+            #threshold=minDist/densityRatio
+            threshold=minDist/2*STDs
+            basis.append(minLoc[0])
+            nearPeak=distCpy[minLoc[0],:]<=threshold
+            clusterSizes.append(sum(nearPeak)+1)
+            clustered = clustered + sum(nearPeak)+1
+            distCpy[:,nearPeak]=np.Inf
+            distCpy[nearPeak,:]=np.Inf
+            distCpy[minLoc[0],:]=np.Inf
+            distCpy[:,minLoc[0]]=np.Inf
+            for ind in range(N):
+                used[ind]=used[ind] or nearPeak[ind]
+            used[minLoc[0]]=True
+
+    C=len(clusterSizes)
+    plot(np.array(range(1,C+1)).reshape((C,1)), np.array(clusterSizes).reshape((C,1)),
+         'basis size vs cluster size', 'basis builder')
+    plt.show(block=False)
+    return [basis,clusterSizes]

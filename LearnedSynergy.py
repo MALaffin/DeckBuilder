@@ -11,168 +11,230 @@ print("TensorFlow version:", tf.__version__)
 
 
 class LearnedSynergy:
-    def __init__(self, modelSaveLoc, userSaveLoc):
+    def __init__(self, modelSaveLoc, userSaveLoc,scaleValue=1):
         self.model=[]
         self.modelSaveLoc=modelSaveLoc
         self.userSaveLoc=userSaveLoc
+        self.scaleValue=scaleValue
     
-    def trainModel2(self, vector, chaff, decks, combos):
+    def trainModel2(self, vector, chaff, decks, combos, reps, reset, showPlots=False):
         
-        if exists(self.modelSaveLoc):
+        cardlist=chaff.copy()
+        for deck in decks:
+            for card in deck:
+                if(card in chaff):
+                    print("deck card in chaff")
+                if not card in cardlist:
+                    cardlist.append(card);
+        for combo in combos:
+            for card in combo:
+                if(card in chaff):
+                    print("combo card in chaff")
+                if not card in cardlist:
+                    cardlist.append(card);
+        cardlist.sort()#this should reasonably randomize good and bad
+        #cardlistNoChaff=list(set(cardlist).difference(set(chaff)))
+        #cardlistNoChaff.sort()
+        
+        chaffValue=0
+        baselineValue=self.scaleValue/4
+        deckValue=self.scaleValue/2
+        comboValue=self.scaleValue
+        Ntrain=len(cardlist)
+        match=np.ones((Ntrain,Ntrain))*baselineValue
+        for card in chaff:
+            c=cardlist.index(card)
+            match[c,:]=chaffValue
+            match[:,c]=chaffValue
+        for deck in decks:
+            for card1 in deck:
+                c1=cardlist.index(card1)
+                for card2 in deck:
+                    c2=cardlist.index(card2)
+                    match[c1,c2]=max(match[c1,c2],deckValue)
+        for combo in combos:
+            for card1 in combo:
+                c1=cardlist.index(card1)
+                for card2 in combo:
+                    c2=cardlist.index(card2)
+                    match[c1,c2]=max(match[c1,c2],comboValue)
+        #match=match/comboValue# cant tell if there are internal constants that benefit from a non-0-1 scaling
+
+        # c000=np.sum(match==0)
+        # c025=np.sum(match==0.25)
+        # c050=np.sum(match==0.5)
+        # c100=np.sum(match==1.0)
+        # #training is failing; maybe I need to weight it better
+        # #E(match)=c000*0+c025*0.25+c050*0.5+c100*1.0
+        # #E=c000*V0+c025*V1+c050*V2+c100*V3
+        # #using an SSE cost function so balance about the mean:
+        # #Weasy*c000*(V0-E)^2=Whard*c100*(V3-E)^2
+        # #let Weasy=1
+        # Whard=0.05;# so V3-E is about (c000/(Whard*c100))^0.5 smaller than V0-E
+        # #warning, at some point Whard will push V1<V0=0
+        # #(c000/(Whard*c100))^.5*(E-V0)=(V3-E)
+        # #let V0=0
+        # #(1+(c000/(Whard*c100))^.5)*E=V3
+        # # want an easy scaling let V3 = 1.0
+        # #E=1/(1+(c000/(Whard*c100))^.5)
+        # E=1/(1+np.sqrt(c000/(Whard*c100)))
+        # #let V3-E have a similar weight at V2-E 
+        # #Whard*c050*(V2-E)^2=Whard*c100*(1-E)^2
+        # #(V2-E)^2=(c100/c050)*(1-E)^2
+        # #V2^2-2*V2*E+E^2=(c100/c050)*(1-2*E+E^2)
+        # #V2^2-2*V2*E+E^2-(c100/c050)*(1-2*E+E^2)
+        # A=1
+        # B=-2*E
+        # C=E**2-(c100/c050)*(1-2*E+E**2)
+        # D=B**2-4*A*C
+        # V2=(-B+np.sqrt(D))/(2*A)#positive side is the only one hat could be positive
+        # #E=(c025*V1+c050*V2+c100)/(c000+c025+c050+c100)
+        # #c025*V1=E*(c000+c025+c050+c100)-(c050*V2+c100)
+        # V1=(E*(c000+c025+c050+c100)-(c050*V2+c100))/c025
+        # match[match==0.25]=V1;
+        # match[match==0.5]=V2;
+
+        if showPlots:
+            fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=showPlots)
+            h = ax.imshow(match, vmin=0,
+                vmax=np.max(match), aspect='auto')
+            plt.show(block=False)
+
+        #about 700 basis cards, sizein~2*(700*3)=4200 for card pairs of basis vectors of size 3
+        #expect ~1000 cards from a pool of ~10000 about 10% of the combos are relevent
+        #maybe as many as 700*700*0.1~=50000 relevent good groups
+        #the pair input structure implies a symetric training scheme on the input layer would be best; 
+        # trust that the basis made that layer
+        #4200 values for defining which basis each card belongs to 
+        #50000/4200~need about 12 nodes after input to mix enough; maybe want ~4x few to control granualrity of underlying distribution
+    
+        
+    
+        V=vector.shape[0]
+        width=np.ceil(4*50000/(V*2))
+        #width=4#np.ceil(5000/(V*2))
+        sizeIn=V*2 
+        tf.random.set_seed(0)
+        if not reset and exists(self.modelSaveLoc):
             self.model=tf.keras.models.load_model(self.modelSaveLoc)
         else:
-            #about 700 basis cards, sizein~2*(700*3)=4200 for card pairs of basis vectors of size 3
-            #expect ~1000 cards from a pool of ~10000 about 10% of the combos are relevent
-            #maybe as many as 700*700*0.1~=50000 relevent good groups
-            #the pair input structure implies a symetric training scheme on the input layer would be best; 
-            # trust that the basis made that layer
-            #4200 values for defining which basis each card belongs to 
-            #50000/4200~need about 12 nodes after input to mix enough; maybe want ~4x few to control granualrity of underlying distribution
-        
-            cardlist=chaff.copy()
-            for deck in decks:
-                for card in deck:
-                    if(card in chaff):
-                        print("deck card in chaff")
-                    if not card in cardlist:
-                        cardlist.append(card);
-            for combo in combos:
-                for card in combo:
-                    if(card in chaff):
-                        print("combo card in chaff")
-                    if not card in cardlist:
-                        cardlist.append(card);
-            cardlist.sort()#this should reasonably randomize good and bad
-            #cardlistNoChaff=list(set(cardlist).difference(set(chaff)))
-            #cardlistNoChaff.sort()
-            
-            
-            chaffValue=0
-            deckValue=0.5
-            comboValue=1.0
-            Ntrain=len(cardlist)
-            match=np.ones((Ntrain,Ntrain))*0.25
-            trainVecs=vector[:,cardlist]
-            for card in chaff:
-                c=cardlist.index(card)
-                match[c,:]=chaffValue
-                match[:,c]=chaffValue
-            for deck in decks:
-                for card1 in deck:
-                    c1=cardlist.index(card1)
-                    for card2 in deck:
-                        c2=cardlist.index(card2)
-                        match[c1,c2]=max(match[c1,c2],deckValue)
-            for combo in combos:
-                for card1 in combo:
-                    c1=cardlist.index(card1)
-                    for card2 in combo:
-                        c2=cardlist.index(card2)
-                        match[c1,c2]=max(match[c1,c2],comboValue)
-                
-
-            if False:
-                fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=0)
-                h = ax.imshow(match, vmin=0,
-                    vmax=1, aspect='auto')
-                plt.show(block=False)
-            
-        
-            V=vector.shape[0]
-            width=np.ceil(4*50000/(V*2))
-            #width=4#np.ceil(5000/(V*2))
-            sizeIn=V*2
             self.model = tf.keras.models.Sequential([
                 tf.keras.layers.Flatten(input_shape=(sizeIn,1)),
                 tf.keras.layers.Dense(width,  activation='sigmoid'),
                 tf.keras.layers.Dense(1, activation='linear')
-            ])                    
-            tf.random.set_seed(0)
+            ])                   
             self.model.compile(optimizer='RMSprop',
                 loss='mean_squared_error',  # self.error,#
                 metrics=['mean_absolute_error']
                 )
+        dataBytes=(2*V*8)*Ntrain*Ntrain #(vector to train, 8bytes/double)*rows*cols
+        dataBytesTarget=6e9#memory spikes killing python terminal#8e9
+        blocks=int(np.ceil(dataBytes/dataBytesTarget))
+        trainStep=int(np.ceil(Ntrain/blocks))
+        #consider iterations of training on the outside
+        #reps=8
+        trainVecsT=vector[:,cardlist].transpose()
 
-            dataBytes=(2*V*8)*Ntrain*Ntrain #(vector to train, 8bytes/double)*rows*cols
-            dataBytesTarget=8000000000
-            blocks=int(np.ceil(dataBytes/dataBytesTarget))
-            trainStep=int(np.ceil(Ntrain/blocks))
-            #consider iterations of training on the outside
-            reps=2
-            for rep in range(reps):
-                t0=time()
-                for C in range(blocks):
-                    CBlock=[c for c in range(C*trainStep,min((C+1)*trainStep,Ntrain))]
-                    Ccards=[cardlist[c] for c in CBlock]
-                    Nblock=len(CBlock)
-
-                    trainVec=np.zeros((Nblock*Ntrain,2*V))
-                    weights=np.zeros((Nblock*Ntrain,1))
-                    for r in range(Ntrain):
-                        region=[r*Nblock+c for c in range(Nblock)]
-                        top=np.repeat(trainVecs[:,r].reshape((V,1)),Nblock,axis=1)+vector[:,Ccards]#
-                        bot=np.absolute(top-2*vector[:,Ccards])#vector[:,Ccards]#
-                        trainVecC=np.concatenate((top,bot),axis=0).transpose()
-                        weights[region,0]=match[r,CBlock].transpose()
-                        trainVec[region,:]=trainVecC
-
-                    print("starting colBlock " +str(C) +" of "+ str(blocks))
-                    self.model.fit(trainVec, weights, epochs=32,shuffle=True, batch_size=128, verbose=0)
-                    del trainVec
-                    del weights
-                    gc.collect()
-                    meanTime=(time()-t0)/(C+1)/60
-                    print("about "+str(meanTime*((blocks-C-1)+blocks*(reps-rep-1)))+" minutes left")
-            self.model.save(self.modelSaveLoc)
-        
-        if False:
-            N=vector.shape[1]
-            V=vector.shape[0]
-            V2=V*2;
-            trainedCardMatchSUB = np.zeros([Ntrain, Ntrain])
-            X2 = np.zeros([Ntrain, 2*V])
+        lastErr=np.nan
+        trainVec=np.zeros((trainStep*Ntrain,2*V))
+        weights=np.zeros((trainStep*Ntrain,1))
+        for rep in range(reps):
             t0=time()
-            for r in range(Ntrain):
-                rI=cardlist[r]
-                if r % round(Ntrain / 10) == 0:
-                    print('using model loop ' + str(r) + ' of ' + str(Ntrain))
-                for c in range(Ntrain):
-                    cI=cardlist[c]
-                    X2[c, 0:V] = vector[:, rI]+vector[:, cI]#
-                    X2[c, V:V2] = np.absolute(vector[:, rI]-vector[:, cI])#vector[:, cI]#
-                trainedCardMatchSUB[r, :] = self.model.predict(X2,verbose=0)[:, 0]
-                if r % round(Ntrain / 10) == 0:
-                    meanTime=(time()-t0)/(r+1)/60
-                    print("about "+str(meanTime*(Ntrain-r-1))+" minutes left")
+            for C in range(blocks):
+                CBlock=[c for c in range(C*trainStep,min((C+1)*trainStep,Ntrain))]
+                Nblock=len(CBlock)
+                TV=trainVecsT[CBlock,:]
+                for r in range(Ntrain):
+                    region=[r*Nblock+c for c in range(Nblock)]#let the prior samples get reused
+                    #top=np.repeat(trainVecsT[r,:].reshape((1,V)),Nblock,axis=0)+TV
+                    #top=trainVecsT[r,:]+TV
+                    #bot=trainVecsT[r,:]-TV
+                    #trainVec[region,0:V]=top
+                    #trainVec[region,V:(2*V)]=bot
+                    #del top
+                    #del bot
+                    #gc.collect()
+                    weights[region,0]=match[CBlock,r]
+                    trainVec[region,0:V]=trainVecsT[r,:]+TV
+                    trainVec[region,V:(2*V)]=trainVecsT[r,:]-TV
+                    trainVec[region,V:(2*V)]=np.abs(trainVec[region,V:(2*V)])
+                    #del trainVecC #can probably eliminate this variable
+                del TV
+                print("starting rep "+ str(rep)+" of "+str(reps)+" colBlock " +str(C) +" of "+ str(blocks))
+                #self.model.fit(trainVec, weights, epochs=32,shuffle=True, batch_size=128, verbose=1)
+                epochs=32;
+                hist=self.model.fit(trainVec, weights, epochs=epochs,shuffle=True, batch_size=1024, verbose=0)
                 gc.collect()
-            fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=1)
-            h = ax.imshow(trainedCardMatchSUB, vmin=0,
-                vmax=1, aspect='auto')
-            plt.show(block=True)
+                meanTime=(time()-t0)/(C+1)/60
+                lastErr=hist.history['mean_absolute_error'][-1]
+                print("Err around " + str(hist.history['mean_absolute_error'][epochs-1]) + ", about "+str(meanTime*((blocks-C-1)+blocks*(reps-rep-1)))+" minutes left")
 
+        self.model.save(self.modelSaveLoc,overwrite=True)
+        
+        if showPlots:
+            self.useModel2(vector[:,cardlist], False, showPlots)
+            plt.show(block=False)
+        
+        return lastErr/self.scaleValue
+
+    
+    def useModel2(self, vector, reset, showPlots=0):
+        if exists(self.modelSaveLoc):
+            self.model=tf.keras.models.load_model(self.modelSaveLoc)
+        else:
+            print('missing '+ self.modelSaveLoc)
+            return None
         print("begin use")
-        if exists(self.userSaveLoc):
+        if not showPlots and exists(self.userSaveLoc) and not reset:
             with open(self.userSaveLoc, 'rb') as file:
                 trainedCardMatch = dill.load(file)
                 file.close()
         else:
             N=vector.shape[1]
             V=vector.shape[0]
-            V2=V*2;
-            trainedCardMatch = np.zeros([N, N])
-            X2 = np.zeros([N, 2*V])
+            trainedCardMatch=np.zeros((N,N))
+            dataBytes=(2*V*8)*N*N #(vector to train, 8bytes/double)*rows*cols
+            dataBytesTarget=4e9#serious overhead issues#8e9
+            blocks=dataBytes/dataBytesTarget#aproximation from memory
+            trainStep=int(np.maximum(1,np.floor(N/blocks)))
+            blocks=int(np.ceil(N/trainStep))
+            #consider iterations of training on the outside
+            #reps=8
+            trainVecsT=vector.transpose()
+
+            trainVec=np.zeros((trainStep*N,2*V))
+            
             t0=time()
-            for r in range(N):
-                if r % round(N / 100) == 0:
-                    print('using model loop ' + str(r) + ' of ' + str(N))
-                for c in range(N):
-                    X2[c, 0:V] = vector[:, r]
-                    X2[c, V:V2] = vector[:, c]
-                trainedCardMatch[r, :] = self.model.predict(X2,verbose=0)[:, 0]
-                if r % round(N / 100) == 0:
-                    meanTime=(time()-t0)/(r+1)/60
-                    print("about "+str(meanTime*(N-r-1))+" minutes left")
+            for C in range(blocks):
+                CBlock=[c for c in range(C*trainStep,min((C+1)*trainStep,N))]
+                Nblock=len(CBlock)
+                TV=trainVecsT[CBlock,:]
+                if(not Nblock == trainStep):
+                    del trainVec
+                    gc.collect()
+                    trainVec=np.zeros((Nblock*N,2*V))
+                for r in range(N):
+                    region=[r*Nblock+c for c in range(Nblock)]#let the prior samples get reused
+                    trainVec[region,0:V]=trainVecsT[r,:]+TV
+                    trainVec[region,V:(2*V)]=trainVecsT[r,:]-TV
+                    trainVec[region,V:(2*V)]=np.abs(trainVec[region,V:(2*V)])
+
+                print("colBlock " +str(C) +" of "+ str(blocks))                
+                temp= self.model.predict(trainVec,verbose=0)[:, 0]
+                trainedCardMatch[:,CBlock] =temp.reshape((N,Nblock))
+                del temp                
                 gc.collect()
+                meanTime=(time()-t0)/(C+1)/60
+                print("about "+str(meanTime*((blocks-C-1)))+" minutes left")
+        del trainVec
+        del trainVecsT
+        gc.collect()
+        if showPlots:
+            fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=showPlots+1)
+            h = ax.imshow(trainedCardMatch, vmin=0,
+                vmax=np.round(np.max(trainedCardMatch)), aspect='auto')
+            plt.show(block=False)
+        else:
             with open(self.userSaveLoc, "wb") as f:
                 dill.dump(trainedCardMatch, f)
                 f.close()
