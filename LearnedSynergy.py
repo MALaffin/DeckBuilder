@@ -11,13 +11,13 @@ print("TensorFlow version:", tf.__version__)
 
 
 class LearnedSynergy:
-    def __init__(self, modelSaveLoc, userSaveLoc,scaleValue=1):
+    def __init__(self, modelSaveLoc, userSaveLoc):
         self.model=[]
         self.modelSaveLoc=modelSaveLoc
         self.userSaveLoc=userSaveLoc
-        self.scaleValue=scaleValue
+        self.scaleValue=1.0
     
-    def trainModel2(self, vector, chaff, decks, combos, reps, reset, showPlots=False):
+    def trainModel2(self, vector, chaff, decks, combos, reps, reset, relevancePower, showPlots=False):
         
         cardlist=chaff.copy()
         for deck in decks:
@@ -109,22 +109,33 @@ class LearnedSynergy:
         #50000/4200~need about 12 nodes after input to mix enough; maybe want ~4x few to control granualrity of underlying distribution
     
         
-    
+        #about 1500 cards of interest; maybe close to 150-300 for types
+        # need about 2x to to bound the sides with simple sigmoinds (1d aprox)
+        # need about three classes; chaff, decks, combo
+
         V=vector.shape[0]
-        width=np.ceil(4*50000/(V*2))
+        width=np.ceil(64)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
+        width2=3**2#combinations of subgroups
+        #width=np.ceil(4*50000/(V*2))
         #width=4#np.ceil(5000/(V*2))
         sizeIn=V*2 
-        tf.random.set_seed(0)
+        self.RESET()
         if not reset and exists(self.modelSaveLoc):
             self.model=tf.keras.models.load_model(self.modelSaveLoc)
         else:
             self.model = tf.keras.models.Sequential([
                 tf.keras.layers.Flatten(input_shape=(sizeIn,1)),
+                #tf.keras.layers.Dense(width,  activation='softmax'),
+                #tf.keras.layers.Dense(width2,  activation='softmax'),
+                #tf.keras.layers.Dense(width,  activation='tanh'),
                 tf.keras.layers.Dense(width,  activation='sigmoid'),
+                tf.keras.layers.Dense(width2,  activation='sigmoid'),
                 tf.keras.layers.Dense(1, activation='linear')
             ])                   
-            self.model.compile(optimizer='RMSprop',
+            self.model.compile(optimizer='RMSprop',#'FTRL',#'adadelta',#
                 loss='mean_squared_error',  # self.error,#
+                #loss='mean_squared_logarithmic_error',  # self.error,#
+                #loss='log_cosh',  # self.error,#
                 metrics=['mean_absolute_error']
                 )
         dataBytes=(2*V*8)*Ntrain*Ntrain #(vector to train, 8bytes/double)*rows*cols
@@ -135,15 +146,28 @@ class LearnedSynergy:
         #reps=8
         trainVecsT=vector[:,cardlist].transpose()
 
+        fullErr=0
         lastErr=np.nan
         trainVec=np.zeros((trainStep*Ntrain,2*V))
         weights=np.zeros((trainStep*Ntrain,1))
+        relevance=np.ones((trainStep*Ntrain,1))
+        fullRelevance=0*match;
+        nCombo=np.sum(match==comboValue)
+        fullRelevance[match==chaffValue]=(nCombo/np.sum(match==chaffValue))**relevancePower
+        fullRelevance[match==baselineValue]=(nCombo/np.sum(match==baselineValue))**relevancePower
+        fullRelevance[match==deckValue]=(nCombo/np.sum(match==deckValue))**relevancePower
+        fullRelevance[match==comboValue]=1
+        epochs=32;
+        if reps>16:
+            epochs=int(32*reps/16);
+            reps=16
+
         for rep in range(reps):
             t0=time()
             for C in range(blocks):
                 CBlock=[c for c in range(C*trainStep,min((C+1)*trainStep,Ntrain))]
                 Nblock=len(CBlock)
-                TV=trainVecsT[CBlock,:]
+                #TV=trainVecsT[CBlock,:]
                 for r in range(Ntrain):
                     region=[r*Nblock+c for c in range(Nblock)]#let the prior samples get reused
                     #top=np.repeat(trainVecsT[r,:].reshape((1,V)),Nblock,axis=0)+TV
@@ -155,19 +179,24 @@ class LearnedSynergy:
                     #del bot
                     #gc.collect()
                     weights[region,0]=match[CBlock,r]
-                    trainVec[region,0:V]=trainVecsT[r,:]+TV
-                    trainVec[region,V:(2*V)]=trainVecsT[r,:]-TV
+                    relevance[region,0]=fullRelevance[CBlock,r]
+                    trainVec[region,0:V]=trainVecsT[r,:]+trainVecsT[CBlock,:]
+                    trainVec[region,V:(2*V)]=trainVecsT[r,:]-trainVecsT[CBlock,:]
                     trainVec[region,V:(2*V)]=np.abs(trainVec[region,V:(2*V)])
                     #del trainVecC #can probably eliminate this variable
-                del TV
+                #del TV
                 print("starting rep "+ str(rep)+" of "+str(reps)+" colBlock " +str(C) +" of "+ str(blocks))
                 #self.model.fit(trainVec, weights, epochs=32,shuffle=True, batch_size=128, verbose=1)
-                epochs=32;
-                hist=self.model.fit(trainVec, weights, epochs=epochs,shuffle=True, batch_size=1024, verbose=0)
+                BS=1024;
+                hist=self.model.fit(trainVec, weights,sample_weight=relevance, epochs=epochs,shuffle=True, batch_size=BS, verbose=0)
                 gc.collect()
                 meanTime=(time()-t0)/(C+1)/60
                 lastErr=hist.history['mean_absolute_error'][-1]
+                fullErr=fullErr+lastErr*Nblock
                 print("Err around " + str(hist.history['mean_absolute_error'][epochs-1]) + ", about "+str(meanTime*((blocks-C-1)+blocks*(reps-rep-1)))+" minutes left")
+                del hist
+                tf.keras.backend.clear_session()
+                gc.collect()
 
         self.model.save(self.modelSaveLoc,overwrite=True)
         
@@ -175,7 +204,7 @@ class LearnedSynergy:
             self.useModel2(vector[:,cardlist], False, showPlots)
             plt.show(block=False)
         
-        return lastErr/self.scaleValue
+        return fullErr/self.scaleValue/Ntrain/reps
 
     
     def useModel2(self, vector, reset, showPlots=0):
@@ -232,7 +261,7 @@ class LearnedSynergy:
         if showPlots:
             fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=showPlots+1)
             h = ax.imshow(trainedCardMatch, vmin=0,
-                vmax=np.round(np.max(trainedCardMatch)), aspect='auto')
+                vmax=self.scaleValue, aspect='auto')
             plt.show(block=False)
         else:
             with open(self.userSaveLoc, "wb") as f:
@@ -280,3 +309,31 @@ class LearnedSynergy:
         # self.model.fit(sampleIn, sampleOut, epochs=20, batch_size=1)
         # about 0.06 mean_absolute_error
         plt.show()
+
+    def RESET(self, seed_value= 0):
+        #https://stackoverflow.com/questions/54432394/keras-getting-different-results-with-set-seed
+        # Seed value (can actually be different for each attribution step)
+        #seed_value= 0
+
+        # 1. Set `PYTHONHASHSEED` environment variable at a fixed value
+        import os
+        os.environ['PYTHONHASHSEED']=str(seed_value)
+
+        # 2. Set `python` built-in pseudo-random generator at a fixed value
+        import random
+        random.seed(seed_value)
+
+        # 3. Set `numpy` pseudo-random generator at a fixed value
+        import numpy as np
+        np.random.seed(seed_value)
+
+        # 4. Set `tensorflow` pseudo-random generator at a fixed value
+        import tensorflow as tf
+        #tf.set_random_seed(seed_value)
+        tf.random.set_seed(seed_value)
+
+        ## 5. Configure a new global `tensorflow` session
+        #from keras import backend as K
+        #session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+        #sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+        #K.set_session(sess)

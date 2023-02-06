@@ -23,13 +23,15 @@ class CardProject:
         ,resetInputs = None 
         ,resetModel = None 
         ,resetTrainedCardMatch = None 
+        ,resetTrainedCardMatchUse = None
         ,namedCards = None 
         ,MatchType=1
         ,BasisSize = -1 
         ,fine = False 
         ,label = 'Version'+str(Card.CardVersion_dontChangeAtRuntime)+"/"
         ,coresAllowed=7 
-        ,deckSeeds=None 
+        ,deckSeeds=None
+        ,basisType="None"#"Combos"#"CombosSubset"#"DecksCombosSubset" #"DecksSubset"#"Decks"#"DecksCombos"#
         ):
         
         #manage major objects to backup
@@ -43,6 +45,7 @@ class CardProject:
         self.resetInputs = resetInputs if resetInputs else self.resetIcons
         self.resetModel = resetModel if resetModel else self.resetInputs
         self.resetTrainedCardMatch = resetTrainedCardMatch if resetTrainedCardMatch else self.resetModel
+        self.resetTrainedCardMatchUse = resetTrainedCardMatchUse if resetTrainedCardMatchUse else self.resetTrainedCardMatch
         
         
         self.namedCards = namedCards#pass in names list or integer for debug cases
@@ -50,6 +53,7 @@ class CardProject:
         #options
         self.MatchType=MatchType
         self.BasisSize = BasisSize
+        self.basisType=basisType
         self.fine = fine
         self.label = label
         self.coresAllowed=coresAllowed
@@ -283,8 +287,8 @@ class CardProject:
         # looking for a distance function... rawCardVector as the base so I don't need to use Levenstein on raw text again
     
         distLoc = vectorLoc.replace('.pkl',  '.dist.pkl')
-        iconLocList = vectorLoc.replace('.pkl',  '.Icons.txt')
-        iconLoc = vectorLoc.replace('.pkl',  '.IS' + str(self.BasisSize)+'.pkl')
+        iconLocList = vectorLoc.replace('.pkl',  '.'+self.basisType+'Icons.txt')
+        iconLoc = vectorLoc.replace('.pkl',  '.IS' + str(self.BasisSize)+'.'+self.basisType+'.pkl')
         #iconLoc0 = vectorLoc0.replace('.pkl',  '.IS' + str(self.BasisSize)+'.pkl')
         if self.MatchType==0:
             TrainedCardMatchLoc = iconLoc.replace('.pkl', '.HeuristicMatch.pkl')
@@ -317,19 +321,32 @@ class CardProject:
                     f.close()
             
             basisSeeds=[]
-            location = '/media/VMShare/TrainingInfo/Combos/'
-            from os import listdir
-            from os.path import isfile, join
-            onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
-            combos = []
-            for file in onlyfiles:
-                CD=CockatriceDeck()
-                CD.loadText(location + file)
-                for card in CD.cardSetIndexes:
-                    if not card in basisSeeds:
-                        basisSeeds.append(card)
-            #info = findBasis4(cardDist, basisSeeds)
-            info = findBasis4(cardDist, [])
+            if("Combos" in self.basisType):
+                location = '/media/VMShare/TrainingInfo/Combos/'
+                from os import listdir
+                from os.path import isfile, join
+                onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
+                for file in onlyfiles:
+                    CD=CockatriceDeck()
+                    CD.loadText(location + file)
+                    for card in CD.cardSetIndexes:
+                        if not card in basisSeeds:
+                            basisSeeds.append(card)
+            if("Decks" in self.basisType):
+                location = '/media/VMShare/TrainingInfo/Decks/'
+                from os import listdir
+                from os.path import isfile, join
+                onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
+                for file in onlyfiles:
+                    CD=CockatriceDeck()
+                    CD.load(location + file)
+                    for card in CD.cardSetIndexes:
+                        if not card in basisSeeds:
+                            basisSeeds.append(card)
+            basisType=0
+            if("Subset" in self.basisType):
+                basisType=1
+            info = findBasis4(cardDist, basisSeeds,basisType)
             iconicCards=info[0]
             iconicCardsNames=MtgDbHelper.cards.namesByInds(iconicCards)
             iconInfo=[iconicCards,iconicCardsNames]
@@ -386,10 +403,8 @@ class CardProject:
             # need to train with chunks of data 
 
 
-            if not self.resetTrainedCardMatch and exists(TrainedCardMatchLoc):
-                with open(TrainedCardMatchLoc, 'rb') as file:
-                    trainedCardMatch = dill.load(file)
-                    file.close()
+            if not self.resetTrainedCardMatch and exists(modelCardMatchLoc):
+                print('Model Exists')
             else:
                 deckAndCombos=[];
                 location = '/media/VMShare/TrainingInfo/Decks/'
@@ -433,32 +448,34 @@ class CardProject:
                     rawCardVector[[s+N for s in self.BasisIndexes],:],
                     rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
 
-
-                #LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc,scaleValue=128)
-                LS=[]
+                LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
+                
+                e4=LS.trainModel2(reducedVector,[],[],combos,8,True,.25,showPlots=0)
                 errCheck=[]
-                for lcv in range(4):
-                    S=2**(1-lcv)+2**-5
-                    LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc,scaleValue=S)
-                    LS.trainModel2(reducedVector,[],[],combos,1,True,showPlots=0)
-                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,8,False,showPlots=0)
-                    e1=LS.trainModel2(reducedVector,[],decks,combos,16,False,showPlots=0)
-                    e2=LS.trainModel2(reducedVector,[],[],combos,128,False,showPlots=0)
-                    errCheck.append([S, e0, e1, e2])
-                    summary=str(S)+', '+str(e0)+', '+str(e1)+', '+str(e2)+'\r\n'
-                    with open('scaleSweep.txt','a') as f:
+                for lcv in range(40): 
+                    e2=LS.trainModel2(reducedVector,[],[],combos,1,False,.25,showPlots=0)
+                    e1=-1#LS.trainModel2(reducedVector,[],decks,combos,2,False,??,showPlots=0)
+                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,1,False,0.25,showPlots=0)
+                    errCheck.append([lcv, e0, e1, e2])
+                    summary=str(lcv)+', '+str(e0)+', '+str(e1)+', '+str(e2)+'\r\n'
+                    with open('repOfTrippleReps.txt','a') as f:
                         f.write(summary)
                         f.close()
+                del reducedVector
                 
-                #e2=LS.trainModel2(reducedVector,[],[],combos,128,False,showPlots=0)
-                #e1=LS.trainModel2(reducedVector,[],decks,combos,16,False,showPlots=0)
-                #e0=LS.trainModel2(reducedVector,chaff,decks,combos,8,False,showPlots=0)
-                eF=LS.trainModel2(reducedVector,[],[],combos,1,False,showPlots=30)
+            if not self.resetTrainedCardMatchUse and exists(TrainedCardMatchLoc):
+                with open(TrainedCardMatchLoc, 'rb') as file:
+                    trainedCardMatch = dill.load(file)
+                    file.close()
+            else:
+                LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
+                N=rawCardVector.shape[1]
+                reducedVector=np.concatenate(
+                    (rawCardVector[self.BasisIndexes,:],
+                    rawCardVector[[s+N for s in self.BasisIndexes],:],
+                    rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
                 trainedCardMatch = LS.useModel2(reducedVector,True)
                 plt.show(block=True)
-
-                #LS.trainModel2(reducedVector,[],[],combos,1,True,showPlots=100)
-                #trainedCardMatch = LS.useModel2(reducedVector,100)
 
             if self.resetTrainedCardMatch:             
                 fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=0)
@@ -566,5 +583,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=None,MatchType = 1,fine=False,resetTrainedCardMatch=True)
+    cp=CardProject(namedCards=None,MatchType = 1,fine=False,resetTrainedCardMatchUse=True)
     cp.createOrLoadData()
