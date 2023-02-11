@@ -114,7 +114,7 @@ class LearnedSynergy:
         # need about three classes; chaff, decks, combo
 
         V=vector.shape[0]
-        width=np.ceil(64)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
+        width=np.ceil(32)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
         width2=3**2#combinations of subgroups
         #width=np.ceil(4*50000/(V*2))
         #width=4#np.ceil(5000/(V*2))
@@ -157,9 +157,9 @@ class LearnedSynergy:
         fullRelevance[match==baselineValue]=(nCombo/np.sum(match==baselineValue))**relevancePower
         fullRelevance[match==deckValue]=(nCombo/np.sum(match==deckValue))**relevancePower
         fullRelevance[match==comboValue]=1
-        epochs=32;
+        epochs=1;
         if reps>16:
-            epochs=int(32*reps/16);
+            epochs=int(reps/16);
             reps=16
 
         for rep in range(reps):
@@ -187,7 +187,7 @@ class LearnedSynergy:
                 #del TV
                 print("starting rep "+ str(rep)+" of "+str(reps)+" colBlock " +str(C) +" of "+ str(blocks))
                 #self.model.fit(trainVec, weights, epochs=32,shuffle=True, batch_size=128, verbose=1)
-                BS=1024;
+                BS=2048;
                 hist=self.model.fit(trainVec, weights,sample_weight=relevance, epochs=epochs,shuffle=True, batch_size=BS, verbose=0)
                 gc.collect()
                 meanTime=(time()-t0)/(C+1)/60
@@ -255,18 +255,20 @@ class LearnedSynergy:
                 gc.collect()
                 meanTime=(time()-t0)/(C+1)/60
                 print("about "+str(meanTime*((blocks-C-1)))+" minutes left")
-        del trainVec
-        del trainVecsT
-        gc.collect()
+            
+            del trainVec
+            del trainVecsT
+            gc.collect()
+            with open(self.userSaveLoc, "wb") as f:
+                dill.dump(trainedCardMatch, f)
+                f.close()
+        
         if showPlots:
             fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=showPlots+1)
             h = ax.imshow(trainedCardMatch, vmin=0,
                 vmax=self.scaleValue, aspect='auto')
             plt.show(block=False)
-        else:
-            with open(self.userSaveLoc, "wb") as f:
-                dill.dump(trainedCardMatch, f)
-                f.close()
+
         return trainedCardMatch;
 
     def trainModel(self, sampleIn, sampleOut, seed=0):

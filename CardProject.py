@@ -26,6 +26,7 @@ class CardProject:
         ,resetTrainedCardMatchUse = None
         ,namedCards = None 
         ,MatchType=1
+        ,trainingWeight=0.5
         ,BasisSize = -1 
         ,fine = False 
         ,label = 'Version'+str(Card.CardVersion_dontChangeAtRuntime)+"/"
@@ -54,6 +55,7 @@ class CardProject:
         self.MatchType=MatchType
         self.BasisSize = BasisSize
         self.basisType=basisType
+        self.trainingWeight=trainingWeight
         self.fine = fine
         self.label = label
         self.coresAllowed=coresAllowed
@@ -293,8 +295,9 @@ class CardProject:
         if self.MatchType==0:
             TrainedCardMatchLoc = iconLoc.replace('.pkl', '.HeuristicMatch.pkl')
         else:
-            modelCardMatchLoc = iconLoc.replace('.pkl', '.TrainedCardMatch.model/')
-            TrainedCardMatchLoc = iconLoc.replace('.pkl', '.TrainedCardMatch.pkl')
+            P=self.trainingWeight
+            modelCardMatchLoc = iconLoc.replace('.pkl', '.'+str(P)+'.TrainedCardMatch.model/')
+            TrainedCardMatchLoc = iconLoc.replace('.pkl', '.'+str(P)+'.TrainedCardMatch.pkl')
         pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
         distCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.dist.pkl')
         deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
@@ -450,14 +453,17 @@ class CardProject:
 
                 LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
                 
-                e4=LS.trainModel2(reducedVector,[],[],combos,8,True,.25,showPlots=0)
+                t0=time()
+                e4=LS.trainModel2(reducedVector,[],[],combos,128*32,True,P,showPlots=0)
                 errCheck=[]
-                for lcv in range(40): 
-                    e2=LS.trainModel2(reducedVector,[],[],combos,1,False,.25,showPlots=0)
+                overEpochs=128;
+                for lcv in range(overEpochs): 
+                    e2=LS.trainModel2(reducedVector,[],[],combos,32,False,P,showPlots=0)
                     e1=-1#LS.trainModel2(reducedVector,[],decks,combos,2,False,??,showPlots=0)
-                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,1,False,0.25,showPlots=0)
+                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,1,False,P,showPlots=0)
+                    timeTaken=(time()-t0)/60
                     errCheck.append([lcv, e0, e1, e2])
-                    summary=str(lcv)+', '+str(e0)+', '+str(e1)+', '+str(e2)+'\r\n'
+                    summary=str(lcv)+', '+str(e0)+', '+str(e1)+', '+str(e2)+', '+str(timeTaken)+'\r\n'
                     with open('repOfTrippleReps.txt','a') as f:
                         f.write(summary)
                         f.close()
@@ -474,13 +480,7 @@ class CardProject:
                     (rawCardVector[self.BasisIndexes,:],
                     rawCardVector[[s+N for s in self.BasisIndexes],:],
                     rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
-                trainedCardMatch = LS.useModel2(reducedVector,True)
-                plt.show(block=True)
-
-            if self.resetTrainedCardMatch:             
-                fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=0)
-                h = ax.imshow(trainedCardMatch, vmin=0,
-                  vmax=1, aspect='auto')
+                trainedCardMatch = LS.useModel2(reducedVector,True,showPlots=1)
                 plt.show(block=True)
 
             cardMatch = (trainedCardMatch + trainedCardMatch.transpose())/2-1
