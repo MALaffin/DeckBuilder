@@ -167,7 +167,7 @@ class CardProjectViewer:
         names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
         names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
         self.CP=CardProject(namedCards=None
-            ,MatchType = 0
+            ,MatchType = 1
             ,fine = False)
         self.CP.createOrLoadData()
         self.button.config(state=ACTIVE) #while running disable it

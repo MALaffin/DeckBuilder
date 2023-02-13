@@ -1,6 +1,5 @@
 from MtgDbHelper import *
 
-
 def getDeckLists(addCombos=False):
     location = '/media/VMShare/OldDecks/Dragons/'
     from os import listdir
@@ -8,21 +7,9 @@ def getDeckLists(addCombos=False):
     onlyfiles = [f for f in listdir(location) if isfile(join(location, f))]
     decks = []
     for file in onlyfiles:
-        with open(location + file) as f:
-            lines = f.readlines()
-        # todo switch to xml reader
-        deck = []
-        for line in lines:
-            if '<card' in line:
-                info = line.split('"')
-                count = int(info[1])
-                name = info[3]
-                for element in range(count):
-                    deck.append(name)
-        if not MtgDbHelper.cards:
-            MtgDbHelper.reset()
-        cardSet = MtgDbHelper.cards.subsetByNames(deck)
-        decks.append(cardSet)
+        CD=CockatriceDeck()
+        CD.load(location + file)
+        decks.append(CD.cardSet)
 
     if addCombos:
         combos = getKnownCombos(True)  # other cards worth tracking
@@ -337,3 +324,68 @@ def getKnownCombosAndDeck(addGarbage=False, genPairs=False, namesOnly=False):
                 combos.append([.25,[deck[row].name]+[deck[col].name]])
     return combos
 
+
+class CockatriceDeck:
+    def __init__(self) -> None:
+        self.cards=dict()
+        self.cardSet=[]
+        self.cardSetIndexes=[]
+        if not MtgDbHelper.cards:
+            MtgDbHelper.initDb(False)
+
+    def setByInds(self,inds):
+        self.cardSetIndexes=inds
+        self.cardSet=MtgDbHelper.cards.subsetByInds(inds)
+        for card in self.cardSet.internalSet:
+            if(card.name in self.cards):
+                self.cards[card.name]=self.cards[card.name]+1
+            else:
+                self.cards[card.name]=1;
+
+    def load(self,file):
+        with open(file) as f:
+            lines = f.readlines()
+            f.close()
+        # todo switch to xml reader
+        deck = []
+        for line in lines:
+            if '<card' in line:
+                info = line.split('"')
+                count = int(info[1])
+                name = info[3]
+                for element in range(count):
+                    deck.append(name)
+        self.setByInds(MtgDbHelper.cards.findCards(deck, equalsNotLike=False))
+    
+    def save(self,file):
+        lines=[]
+        lines.append('<?xml version="1.0" encoding="UTF-8"?>')
+        lines.append('<cockatrice_deck version="1">')
+        lines.append('    <deckname>Arcades</deckname>')
+        lines.append('    <comments></comments>')
+        lines.append('    <zone name="main">')
+        for name in self.cards.keys:
+            count=self.cards[name]
+            lines.append('      <card number="'+ str(count) +'" name="'+name+'"/>')
+        lines.append('    </zone>')
+        lines.append('</cockatrice_deck>')
+        with open(file,'wb') as f:
+            f.writelines(lines)
+            f.close()
+
+    def loadText(self,file):
+        with open(file) as f:
+            deck = f.read().splitlines()
+            f.close()        
+        self.setByInds(MtgDbHelper.cards.findCards(deck))
+    
+    def saveText(self,file):
+        deck=[]
+        for name in self.cards.keys():
+            count=self.cards[name]
+            for c in range(count):
+                deck.append(name)
+        with open(file,'w') as f:
+            for card in deck:
+                f.write(card+'\r\n')
+            f.close()

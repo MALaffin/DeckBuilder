@@ -129,6 +129,12 @@ class CardSet:
             cards = cards + [self.internalSet[ind]]
         return CardSet(cards)
 
+    def namesByInds(self, inds):
+        cards = []
+        for ind in inds:
+            cards = cards + [self.internalSet[ind].name]
+        return cards
+
     def sortCardsByType(self, types):
         groups = self.partitionCardsByType(types)
         inds = [];
@@ -190,7 +196,15 @@ class CardSet:
                 else:
                     if name in self.internalSet[card].name:
                         found = card
+            if (found==-1):
+                print(name+" not found")
             cards = cards + [found]
+        return cards
+
+    def getNames(self):
+        cards = []
+        for card in range(len(self.internalSet)):
+            cards = cards + [self.internalSet[card].name]
         return cards
 
     def findCards2(self, name, equalsNotLike = True):
