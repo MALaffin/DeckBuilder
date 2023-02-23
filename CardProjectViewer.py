@@ -57,15 +57,21 @@ class CardProjectViewer:
         self.dimsVarX=None
         self.dimsVarY=None
 
-        fig=Figure()
-        self.plt1 = fig.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(fig,master = self.mainWindow)  
+        self.fig=Figure()
+        self.plt1 = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.fig,master = self.mainWindow)  
         self.canvas.get_tk_widget().place(relx=0.40, rely=0.05,relwidth=0.45, relheight=0.45)
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.mainWindow, pack_toolbar=False)
         self.toolbar.update()
         self.toolbar.place(relx=0.40, rely=0.50,relwidth=0.45, relheight=0.1)
         self.canvas.draw()
-
+        def on_click(event):        
+            ax1=self.fig.get_axes()[0]
+            if event.button is MouseButton.LEFT:
+                point = ax1.transData.inverted().transform([event.x, event.y])
+                print('x=' + str(point[0]) + ' y=' + str(point[1]))
+                self.updateCard2(point[0],point[1])
+        self.canvas.mpl_connect('button_press_event', on_click)
         self.CP=None
         self.mainWindow.mainloop()
 
@@ -108,9 +114,24 @@ class CardProjectViewer:
         self.imTk=ImageTk.PhotoImage(im2)
         self.card.itemconfig(self.cardIm, image=self.imTk)
 
-        self.card2.itemconfig(self.cardIm2, image=self.imTk2)
+    def updateCard2(self,x,y):
+        if(self.dimsVarX is None or self.dimsVarY is None):
+            return
+        dx=self.dimsVarX-x;
+        dy=self.dimsVarY-y;
+        dx2Pdy2=dx*dx+dy*dy
+        cardInd=dx2Pdy2.argmin()
+        card=self.CP.cards.internalSet[cardInd]
+        imLoc=getImageLocByMultiverseId(card.multiverseid)
+        x=self.card.winfo_width()
+        y=self.card.winfo_height()
+        im=Image.open(imLoc)
+        im2=im.resize((x,y))
+        self.imTk=ImageTk.PhotoImage(im2)
+        self.card2.itemconfig(self.cardIm, image=self.imTk)
 
-    def plotHelper(self,xPCA,yPCA,dimX,dimY,SelectedDeck,color,marker):
+
+    def plotHelper(self,xPCA,yPCA,dimX,dimY,SelectedDeck,color,marker,setVars=False):
         if(xPCA):
             X3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimX])]
         else:
@@ -119,6 +140,9 @@ class CardProjectViewer:
             Y3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimY])]
         else:
             Y3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimY])]
+        if(setVars):
+            self.dimsVarX=X3
+            self.dimsVarY=Y3
         self.plt1.plot(X3,Y3,color=color,marker=marker,linestyle = 'None')
 
     def updateScatter(self):
@@ -146,7 +170,7 @@ class CardProjectViewer:
                 AllDecks=AllDecks+d
         self.plotHelper(xPCA,yPCA,dimX,dimY,AllDecks,(0,1,0),'.')
         allcards=range(len(self.CP.cards.internalSet))
-        self.plotHelper(xPCA,yPCA,dimX,dimY,allcards,(0,0,0),',')
+        self.plotHelper(xPCA,yPCA,dimX,dimY,allcards,(0,0,0),',',True)
         self.plt1.set_title("test3")
         self.plt1.set_xlabel(cardX.name)
         self.plt1.set_ylabel(cardY.name)
@@ -167,7 +191,7 @@ class CardProjectViewer:
         names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
         names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
         self.CP=CardProject(namedCards=None
-            ,MatchType = 1
+            ,MatchType = 0
             ,fine = False)
         self.CP.createOrLoadData()
         self.button.config(state=ACTIVE) #while running disable it
