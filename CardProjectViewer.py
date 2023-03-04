@@ -33,11 +33,38 @@ class CardProjectViewer:
         self.card.place(relx=0.3, rely=0.65, relwidth=0.15, relheight=0.3)
         self.imTk=None
         self.cardIm=self.card.create_image(0,0, anchor=NW)
+        self.card1ind=-1
+        self.imageXind=-1
+        self.imageYind=-1
+        def on_click1L(event):
+            self.dimY.select_clear()
+            self.imageYind=self.card1ind
+            self.updateScatter()
+        def on_click1R(event):
+            self.dimX.select_clear()
+            self.imageXind=self.card1ind
+            self.updateScatter()
+        self.card.bind('<ButtonRelease-1>', on_click1L)
+        self.card.bind('<ButtonRelease-2>', on_click1R)
+        self.card.bind('<ButtonRelease-3>', on_click1R)
+
         #another card
         self.card2 = Canvas(self.mainWindow) 
         self.card2.place(relx=0.5, rely=0.65, relwidth=0.15, relheight=0.3)
         self.imTk2=None
         self.cardIm2=self.card2.create_image(0,0, anchor=NW)
+        self.card2ind=-1
+        def on_click2L(event):
+            self.dimY.select_clear()
+            self.imageYind=self.card2ind
+            self.updateScatter()
+        def on_click2R(event):
+            self.dimX.select_clear()
+            self.imageXind=self.card2ind
+            self.updateScatter()
+        self.card2.bind('<ButtonRelease-1>', on_click2L)
+        self.card2.bind('<ButtonRelease-2>', on_click2R)
+        self.card2.bind('<ButtonRelease-3>', on_click2R)
 
 
         # txt = Text(mainWindow)
@@ -100,11 +127,10 @@ class CardProjectViewer:
         cs=self.cards.curselection()
         if len(cs) == 0:
             return
-
-        self.imTk2=self.imTk
         
         cn=self.cards.selection_get()
         cardInd=self.CP.cards.findCards([cn])
+        self.card1ind=cardInd[0]
         card=self.CP.cards.internalSet[cardInd[0]]
         imLoc=getImageLocByMultiverseId(card.multiverseid)
         x=self.card.winfo_width()
@@ -121,25 +147,30 @@ class CardProjectViewer:
         dy=self.dimsVarY-y;
         dx2Pdy2=dx*dx+dy*dy
         cardInd=dx2Pdy2.argmin()
+        self.card2ind=cardInd
         card=self.CP.cards.internalSet[cardInd]
         imLoc=getImageLocByMultiverseId(card.multiverseid)
-        x=self.card.winfo_width()
-        y=self.card.winfo_height()
+        x=self.card2.winfo_width()
+        y=self.card2.winfo_height()
         im=Image.open(imLoc)
         im2=im.resize((x,y))
-        self.imTk=ImageTk.PhotoImage(im2)
-        self.card2.itemconfig(self.cardIm, image=self.imTk)
+        self.imTk2=ImageTk.PhotoImage(im2)
+        self.card2.itemconfig(self.cardIm2, image=self.imTk2)
 
 
     def plotHelper(self,xPCA,yPCA,dimX,dimY,SelectedDeck,color,marker,setVars=False):
-        if(xPCA):
+        if(xPCA == 'pca'):
             X3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimX])]
-        else:
+        elif(xPCA == 'card'):
             X3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimX])]
-        if(yPCA):
-            Y3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimY])]
         else:
+            X3=self.CP.CardMatch[SelectedDeck,int(self.imageXind)]
+        if(yPCA == 'pca'):
+            Y3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimY])]
+        elif(yPCA == 'card'):
             Y3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimY])]
+        else:
+            Y3=self.CP.CardMatch[SelectedDeck,int(self.imageYind)]
         if(setVars):
             self.dimsVarX=X3
             self.dimsVarY=Y3
@@ -154,8 +185,18 @@ class CardProjectViewer:
         if dimY < 0:
             return
 
-        xPCA=self.dims[dimX].find('PCA')==0
-        yPCA=self.dims[dimY].find('PCA')==0
+        if not (self.imageXind == -1):
+            xPCA='image'
+        elif(self.dims[dimX].find('PCA')==0):
+            xPCA='pca'
+        else:
+            xPCA='card'
+        if not (self.imageYind == -1):
+            yPCA='image'
+        elif(self.dims[dimY].find('PCA')==0):
+            yPCA='pca'
+        else:
+            yPCA='card'
 
         cardX=self.CP.cards.internalSet[int(self.dimsInds[dimX])]
         cardY=self.CP.cards.internalSet[int(self.dimsInds[dimY])]
@@ -209,7 +250,11 @@ class CardProjectViewer:
             self.updateCard()
         self.cards.bind("<<ListboxSelect>>", cardCallback)
         
-        def updateCallback(event):
+        def updateCallbackX(event):
+            self.imageXind=-1
+            self.updateScatter()
+        def updateCallbackY(event):
+            self.imageYind=-1
             self.updateScatter()
         for ind in range(5):
             self.dims.append('PCA'+str(ind+1))
@@ -224,8 +269,8 @@ class CardProjectViewer:
             self.dims.append(card.name)
         self.dimX['values']=self.dims
         self.dimY['values']=self.dims
-        self.dimX.bind("<<ComboboxSelected>>", updateCallback)
-        self.dimY.bind("<<ComboboxSelected>>", updateCallback)
+        self.dimX.bind("<<ComboboxSelected>>", updateCallbackX)
+        self.dimY.bind("<<ComboboxSelected>>", updateCallbackY)
         
         
 
