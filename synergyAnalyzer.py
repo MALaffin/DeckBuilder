@@ -488,6 +488,7 @@ def findNetworks2(classes,comanderClasses,commanderPoolsByIdentity, synergy, see
     cardCount = synergy.shape[0]    
     typeMatches=[classes.astype(int)&comanderClasses[commander].astype(int) for commander in range(deckCount)]
     makesMana=sourceInfo[:,0]>0
+    isLand=sourceInfo[:,2]==1
 
     updatedDecks = [[] for commander in range(deckCount+1)]
     for commander in range(deckCount):
@@ -527,20 +528,30 @@ def findNetworks2(classes,comanderClasses,commanderPoolsByIdentity, synergy, see
                 print("none allowed at required filter check")
                 
             # focre required mana curve cards at a lower priority
-            mcRequired=0
             if(not numStillRequired):
                 mannaCurve=[ 0 for mc in range(len(mannaCurvePDF))]
+                mcRequired=0
                 for mc in range(1,len(mannaCurvePDF)):#cards;land;1rocks;2rocks;3rocks;4rocks...
                     mannaCurve[mc]=np.sum(\
                         sourceInfo[updatedDecks[commander],1]==(mc-1) \
                         )
-                    if mannaCurve[mc]<mannaCurvePDF[mc]:#if there enough mana makers in a class
+                    if sum(mannaCurve[2:mc])<sum(mannaCurvePDF[2:mc]) :#if mana acceleration needed
                         mcRequired=mc
+                print(str(mcRequired-1) + " or less")
                 mannaCurve[0]=deckSize-sum(mannaCurve)#helps debug counts
-                if(mcRequired>0):
+                if(sum(mannaCurve[1:len(mannaCurvePDF)])<sum(mannaCurvePDF[1:len(mannaCurvePDF)])):
                     allowed[~makesMana]=-float('inf')#disable non-mana sources
-                    for mc in range(mcRequired+1,len(mannaCurvePDF)):
-                        allowed[sourceInfo[:,1]==mc]=-float('inf')#disable high cost mana sources
+                    for mc in range(mcRequired):
+                        allowedTemp=allowed.copy()
+                        allowedTemp[isLand]=-float('inf')
+                        allowedTemp[~(sourceInfo[:,1]==mcRequired)]=-float('inf')#enable only highes curve cards
+                        if(sum(allowedTemp==0)>0):
+                            allowed=allowedTemp
+                            break;
+                        else:
+                            mcRequired=mcRequired-1 #should end at lands when mcRequired==1
+                else:
+                    allowed[makesMana]=-float('inf')#disable mana sources
             if(sum(allowed==0)==0):
                 print("none allowed at mana curve check")
 

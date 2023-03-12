@@ -248,7 +248,7 @@ class CardSet:
         return cardPool
         
     def sources(self):
-        makesFor= np.empty((len(self.internalSet),2))
+        makesFor= np.empty((len(self.internalSet),3))
         for card in range(len(self.internalSet)): 
             current=self.internalSet[card]
             makesFor[card,0]=0
@@ -270,8 +270,12 @@ class CardSet:
                     if(current.types.find("Instant")>-1):#cover instants manacost
                         cost=max(cost,float(current.manavalue))
                     makesFor[card,0]=max(found-cost,makesFor[card,0])
-            if "Land" in current.types and makesFor[card,0]==0:
-                print('weird land: '+current.name)
+            #if "Land" in current.types and makesFor[card,0]==0:
+            #    print('weird land: '+current.name)
+            if "Land" in current.types:
+                makesFor[card,2]=1
+            else:
+                makesFor[card,2]=0
             makesFor[card,1]=float(current.manavalue)
             if not "Land" in current.types and makesFor[card,1]==0:
                 makesFor[card,1]=1#treat moxes like one drops not lands
