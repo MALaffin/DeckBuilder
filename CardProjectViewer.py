@@ -100,6 +100,7 @@ class CardProjectViewer:
                 self.updateCard2(point[0],point[1])
         self.canvas.mpl_connect('button_press_event', on_click)
         self.CP=None
+        self.cardDist=None
         self.mainWindow.mainloop()
 
     def updateCards(self):
@@ -159,18 +160,29 @@ class CardProjectViewer:
 
 
     def plotHelper(self,xPCA,yPCA,dimX,dimY,SelectedDeck,color,marker,setVars=False):
+        makeDist=True
+        if(makeDist and self.cardDist is None):
+            #df=DiffHelper(self.CP.CardMatch)
+            #self.cardDist = df.L2distPar()
+            self.cardDist = L2dist(self.CP.CardMatch)
         if(xPCA == 'pca'):
             X3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimX])]
         elif(xPCA == 'card'):
             X3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimX])]
         else:
-            X3=self.CP.CardMatch[SelectedDeck,int(self.imageXind)]
+            if(makeDist):
+                X3=self.cardDist[SelectedDeck,int(self.imageXind)]
+            else:
+                X3=self.CP.CardMatch[SelectedDeck,int(self.imageXind)]
         if(yPCA == 'pca'):
             Y3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimY])]
         elif(yPCA == 'card'):
             Y3=self.CP.CardMatch[SelectedDeck,int(self.dimsInds[dimY])]
         else:
-            Y3=self.CP.CardMatch[SelectedDeck,int(self.imageYind)]
+            if makeDist:
+                Y3=self.cardDist[SelectedDeck,int(self.imageYind)]
+            else:
+                Y3=self.CP.CardMatch[SelectedDeck,int(self.imageYind)]
         if(setVars):
             self.dimsVarX=X3
             self.dimsVarY=Y3
