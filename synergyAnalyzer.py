@@ -283,6 +283,9 @@ def L2dist(vectors):
         cols=range(r+1,N)
         delta=V[cols,:]-V[r,:]
         dist[r,cols]=np.linalg.norm(delta,axis=1)
+        #for col in cols:
+        #    delta=V[col,:]-V[r,:]
+        #    dist[r,col]=np.linalg.norm(delta)
     for r in range(N):
         cols=range(r)
         dist[r,cols]=dist[cols,r].transpose()
