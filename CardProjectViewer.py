@@ -162,8 +162,6 @@ class CardProjectViewer:
     def plotHelper(self,xPCA,yPCA,dimX,dimY,SelectedDeck,color,marker,setVars=False):
         makeDist=True
         if(makeDist and self.cardDist is None):
-            #df=DiffHelper(self.CP.CardMatch)
-            #self.cardDist = df.L2distPar()
             self.cardDist = L2dist(self.CP.CardMatch)
         if(xPCA == 'pca'):
             X3=self.CP.PCAscore[SelectedDeck,int(self.dimsInds[dimX])]

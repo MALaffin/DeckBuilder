@@ -273,78 +273,14 @@ def findBasis2(dist, basisSize, factor=.99):
     return basis
 
 def L2dist(vectors):
-    V=vectors.transpose()
-    dims = np.shape(vectors)[0]
     N = np.shape(vectors)[1]
-    dist=np.zeros((N,N))
-    for r in range(N):#candidate for parallelization
-        if r % 32 == 0:
-            print('dist '+str(r/N*100) + '% of '+str(N))
-        cols=range(r+1,N)
-        delta=V[cols,:]-V[r,:]
-        dist[r,cols]=np.linalg.norm(delta,axis=1)
-        #for col in cols:
-        #    delta=V[col,:]-V[r,:]
-        #    dist[r,col]=np.linalg.norm(delta)
-    for r in range(N):
-        cols=range(r)
-        dist[r,cols]=dist[cols,r].transpose()
+    dims = np.shape(vectors)[0]
+    #sum (xi-yi)^2=sum xi^2-2xiyi+yi^2=sum xi^2+sum yi^2 -2 sum xiyi
+    V=vectors.transpose()
+    dist=np.asmatrix(np.sum(np.multiply(vectors,vectors),axis=0))
+    dist=dist+dist.transpose()
+    dist=dist-2*np.matmul(V,vectors)
     return dist
-
-class DiffHelper:
-    def __init__(self,vectors):
-        DiffHelper.V=vectors.transpose()
-
-    V=[]
-
-    def subL2distPar(self,r):
-        #print(str(r))
-        N = np.shape(self.V)[0]
-        dims = np.shape(self.V)[1]
-        cols=range(r+1,N)
-        ##delta=np.zeros((N-(r+1),dims))
-        ##for col in cols:
-        ##    delta[col-cols[0],:]=DiffHelper.V[col,:]-DiffHelper.V[r,:]
-        #delta=DiffHelper.V[cols,:]-DiffHelper.V[r,:]
-        #ndelta2=np.linalg.norm(delta,axis=1)
-        #ndelta=np.zeros(N-(r+1))
-        #for col in cols:
-        #    for d in range(N):
-        #        delta=DiffHelper.V[col,d]-DiffHelper.V[r,d];
-        #        ndelta[col-cols[0]]=ndelta[col-cols[0]]+delta*delta
-        #    ndelta[col-cols[0]]=np.sqrt(ndelta[col-cols[0]]);
-        ndelta=np.zeros(N-(r+1))
-        for d in range(N):
-            delta=DiffHelper.V[cols,d]-DiffHelper.V[r,d];
-            ndelta=ndelta+delta*delta
-        ndelta=np.sqrt(ndelta);
-        #if(np.abs(np.mean(ndelta-ndelta2))>.001):
-        #    print("err")
-        return [ndelta,r]
-
-    def L2distPar(self):
-        dims = np.shape(self.V)[1]
-        N = np.shape(self.V)[0]
-        dist=np.zeros((N,N))
-        t0=time()
-        with ProcessPoolExecutor(max_workers=7) as pool:
-            for res in pool.map(self.subL2distPar, range(N)):
-                ndelta=res[0]
-                r=res[1]
-                if r % 32 == 0:
-                    ind=r+1
-                    elapsedTime=(time()-t0)/3600
-                    remainingTime=elapsedTime/ind*(N-ind)
-                    self.lastMessage=str(ind/N*100) + "% time elapsed = "+str(elapsedTime)+"  remaining time =" +str(remainingTime)+" hours"
-                    print('dist '+str(ind) +' of ' +str(N)+' '+self.lastMessage)
-                cols=range(r+1,N)
-                dist[r,cols]=ndelta
-        for r in range(N):
-            cols=range(r)
-            dist[r,cols]=dist[cols,r].transpose()
-        return dist
-
-
 
 def findBasis3(dist, basisSize, factor=1):
     N = np.shape(dist)[0]
@@ -690,3 +626,11 @@ def findBasis4(dist, basisSeeds, seedingType=0):
          'basis size vs cluster size', 'basis builder')
     plt.show(block=False)
     return [basis,clusterSizes]
+
+
+if __name__ == '__main__':
+    testData=np.zeros(shape=[3,5]);
+    testData=testData+[16,25,36,49,64]
+    testData=testData+np.transpose(np.asmatrix([1,2,3]))
+    dst=L2dist(testData)
+    print(dst)

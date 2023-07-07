@@ -317,8 +317,7 @@ class CardProject:
                     cardDist = dill.load(file)
                     file.close()
             else:
-                df=DiffHelper(rawCardVector)
-                cardDist = df.L2distPar()#todo: fix why this takes hours
+                cardDist = L2dist(rawCardVector)
                 with open(distLoc, "wb") as f:
                     dill.dump(cardDist, f)
                     f.close()
