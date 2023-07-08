@@ -280,7 +280,7 @@ def L2dist(vectors):
     dist=np.asmatrix(np.sum(np.multiply(vectors,vectors),axis=0))
     dist=dist+dist.transpose()
     dist=dist-2*np.matmul(V,vectors)
-    return dist
+    return np.array(dist)#matrix is depricated, but sumation was failing without the cast
 
 def findBasis3(dist, basisSize, factor=1):
     N = np.shape(dist)[0]
