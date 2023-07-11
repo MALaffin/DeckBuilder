@@ -318,7 +318,7 @@ class Card:
         return d[n][m] * scale
 
     @staticmethod
-    def __LevenshteinDistance1(s, t, fine, showTable, sCost=1, tCost=1):
+    def LevenshteinDistance1(s, t, fine, showTable, sCost=1, tCost=1):
         m = len(s)
         n = len(t)
         if n == 0:
@@ -383,23 +383,23 @@ class Card:
                 total[row,col]=cost[row,col]+np.min([total[row-1,col],total[row,col-1],total[row-1,col-1]])
         return total[rs-1,cs-1]
 
-    def synergy(self, card:'Card', synSimType = 0, fine=False, showTable=False, printInfo=False):
+    def synergyL(self, card:'Card', synSimType = 0, fine=False, showTable=False, printInfo=False):
         #meanCost = 0        
         if synSimType==0 :
             tmp = np.ones([len(self.Triggers), len(card.Events)])*float('inf')
             for t in range(len(self.Triggers)):
                 for e in range(len(card.Events)):
-                    tmp[t, e] = Card.__LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
+                    tmp[t, e] = Card.LevenshteinDistance1(self.Triggers[t], card.Events[e], fine, False, 1, 1)
         elif synSimType==1 :
             tmp = np.ones([len(self.Events), len(card.Events)])*float('inf')
             for t in range(len(self.Events)):
                 for e in range(len(card.Events)):
-                    tmp[t, e] =  Card.__LevenshteinDistance1(self.Events[t], card.Events[e], fine, False, 1, 1)
+                    tmp[t, e] =  Card.LevenshteinDistance1(self.Events[t], card.Events[e], fine, False, 1, 1)
         else :
             tmp = np.ones([len(self.Triggers), len(card.Triggers)])*float('inf')
             for t in range(len(self.Triggers)):
                 for e in range(len(card.Triggers)):
-                    tmp[t, e] = Card.__LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, False, 1, 1)        
+                    tmp[t, e] = Card.LevenshteinDistance1(self.Triggers[t], card.Triggers[e], fine, False, 1, 1)        
         if synSimType > 0:
             bestCost=-self.bestCornerToCorner(tmp)/self.bestCornerToCorner(-tmp)
         else:
@@ -430,14 +430,98 @@ class Card:
                     y=max(0,min(y,tmp.shape[0]-1))
                     #breakpoint()
                     if synSimType == 0:
-                        Card.__LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
+                        Card.LevenshteinDistance1(self.Triggers[y], card.Events[x], fine, True, 1, 1)
                     elif synSimType == 1:
-                        Card.__LevenshteinDistance1(self.Events[y], card.Events[x], fine, True, 1, 1)                        
+                        Card.LevenshteinDistance1(self.Events[y], card.Events[x], fine, True, 1, 1)                        
                     else: 
-                        Card.__LevenshteinDistance1(self.Triggers[y], card.Triggers[x], fine, True, 1, 1)
+                        Card.LevenshteinDistance1(self.Triggers[y], card.Triggers[x], fine, True, 1, 1)
             plt.connect('button_press_event', on_click)
             plt.show()
         return -bestCost
+
+    @staticmethod
+    def Jaro(s, t, fine, showTable, radius=0.5):
+        if fine or showTable:
+            print("fine and showTable not supproted")
+            return 1/0;
+        #https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance
+        R=int(max(len(s),len(t))*radius-1)
+        M=0
+        T=0
+        LS=len(s)
+        LT=len(t)
+        lastOffset=0
+        okay=dict()
+        Lm=max(LS,LT)
+        for indT in range(-R,R+Lm):
+            if 0<=indT and indT<LT:
+                okay[indT]=True
+            else:
+                okay[indT]=False
+        for indS in range(LS):
+            indT=indS+lastOffset;
+            if okay[indT]:
+                if s[indS]==t[indT]:
+                    M=M+1
+                    okay[indT]=False
+                    continue;
+            for offset in range(-R,R+1):
+                indT=indS+offset
+                if okay[indT]:
+                    if s[indS]==t[indT]:
+                        if M>0:
+                            #if fine:#partial penalization; this costs ~10% of the time, may want to disable fine
+                            #    dT=Card.Jaro(s[indS],t[indT],False,showTable)
+                            #else:
+                            #    dT=1
+                            #T=T+dT
+                            T=T+1
+                        M=M+1
+                        okay[indT]=False
+                        lastOffset=offset
+                        break;
+        if M==0:
+            return 1#-0 cost
+        T=np.floor(T/2)
+        J=(M/LS+M/LT+(M-T)/M)/3
+        return 1-J;#cost
+
+
+
+    
+    def synergyJ(self, card:'Card', synSimType = 0, fine=False, showTable=False, printInfo=False):
+        # Levenshtein is slow...
+        # awsome comparison of string matching techniques on a name data set:
+        # http://users.cecs.anu.edu.au/~Peter.Christen/publications/tr-cs-06-02.pdf
+        # looks like Jaro is pretty good
+        if synSimType==0 :
+            tmp = np.ones([len(self.Triggers), len(card.Events)])*float('inf')
+            for t in range(len(self.Triggers)):
+                for e in range(len(card.Events)):
+                    tmp[t, e] = Card.Jaro(self.Triggers[t], card.Events[e], fine, False)
+        elif synSimType==1 :
+            tmp = np.ones([len(self.Events), len(card.Events)])*float('inf')
+            for t in range(len(self.Events)):
+                for e in range(len(card.Events)):
+                    tmp[t, e] =  Card.Jaro(self.Events[t], card.Events[e], fine, False)
+        else :
+            tmp = np.ones([len(self.Triggers), len(card.Triggers)])*float('inf')
+            for t in range(len(self.Triggers)):
+                for e in range(len(card.Triggers)):
+                    tmp[t, e] = Card.Jaro(self.Triggers[t], card.Triggers[e], fine, False)        
+        if synSimType > 0:
+            bestCost=-self.bestCornerToCorner(tmp)/self.bestCornerToCorner(-tmp)
+        else:
+            bestCost=tmp.min()
+        if printInfo:
+            print(self.name + '\n' + str(self.Triggers) + '\n'
+                  + card.name + '\n' + str(card.Events) + '\n'
+                  + str(tmp))
+
+        if showTable:
+            print("visualization not supported")
+        return -bestCost
+
 
     def ColorID(self):
         #ment for typical dragons... cards like wildfires will be improperly marked
@@ -462,3 +546,30 @@ class Card:
         if g:
             id=id+16
         return id
+
+
+
+if __name__ == '__main__':
+    #https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance
+    print(str(Card.Jaro('FAREMVIEL','FARMVILLE',False,False)))#.88
+    print(str(Card.Jaro('FARMVILLE','FAREMVIEL',False,False)))
+    print(str(Card.LevenshteinDistance1('FAREMVIEL','FARMVILLE',False,False)))
+    print(str(Card.LevenshteinDistance1('FARMVILLE','FAREMVIEL',False,False)))
+    #https://www.geeksforgeeks.org/jaro-and-jaro-winkler-similarity/
+    print(str(Card.Jaro('arnab','raanb',False,False)))#.8667
+    print(str(Card.LevenshteinDistance1('arnab','raanb',False,False)))
+    print(str(Card.Jaro('box','car',False,False)))
+    print(str(Card.LevenshteinDistance1('box','car',False,False)))
+    from time import *
+    t0=time()
+    for trial in range(10):
+        Card.Jaro('arnab','raanb',False,False)
+        Card.Jaro('FARMVILLE','FAREMVIEL',False,False)
+    t1=time()
+    print("Jaro: "+str(t1-t0)+"s")
+    t0=time()
+    for trial in range(10):
+        Card.LevenshteinDistance1('arnab','raanb',False,False)
+        Card.LevenshteinDistance1('FARMVILLE','FAREMVIEL',False,False)
+    t1=time()    
+    print("Levenshtein: "+str(t1-t0)+"s")

@@ -36,68 +36,47 @@ class CardSet:
         else:
             raise ValueError("invalid cards")
 
-    def synergy(self):
-        N = len(self.internalSet)
-        synergy = [[0] * N for i in range(N)]
-        for r in range(N):
-            cardR = self.internalSet[r]
-            t = time()
-            for c in range(N):
-                cardC = self.internalSet[c]
-                # t = time()
-                synergy[c][r] = cardR.synergy(cardC)
-                # elapsed = time() - t
-                # print(f"{r} {c} {d[c][r]} {elapsed} s")
-            elapsed = time() - t
-            print(f"{r} {synergy[0][r]} {elapsed} s")
-        return synergy
-
-    def synergy2(self):
-        N = len(self.internalSet)
-        synergy = np.zeros([N, N])
-        for r in range(N):
-            cardR = self.internalSet[r]
-            t = time()
-            for c in range(N):
-                cardC = self.internalSet[c]
-                # t = time()
-                synergy[c, r] = cardR.synergy(cardC)
-                # elapsed = time() - t
-                # print(f"{r} {c} {d[c][r]} {elapsed} s")
-            elapsed = time() - t
-            print(f"{r} {synergy[0][r]} {elapsed} s")
-        return synergy
-
     synSimType = 0
+    costType = 'L'
     fine = False
     showTable = False
     printInfo = False
     mxPrcs = 3    
 
-    def subSynergy3(self, r):
+    def subSynergy(self, r):
         N = len(self.internalSet)
-        #cardR:Card
+        cardR :'Card'
         cardR = self.internalSet[r] 
         synergy = np.zeros([N, 1])
         if self.synSimType == 0:
             startLoc=0
         else:
             startLoc=r+1
-        for c in range(startLoc,N):
-            cardC = self.internalSet[c]      
-            synergy[c, 0] = cardR.synergy(cardC, synSimType = self.synSimType, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
+        if self.costType=='J':     
+            for c in range(startLoc,N):
+                cardC = self.internalSet[c] 
+                synergy[c, 0] = cardR.synergyJ(cardC, synSimType = self.synSimType, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
+        else: #default to Levenstein, switch to check with next version update    
+            for c in range(startLoc,N):
+                cardC = self.internalSet[c] 
+                synergy[c, 0] = cardR.synergyL(cardC, synSimType = self.synSimType, fine=self.fine, showTable=self.showTable, printInfo=self.printInfo)
         res = [synergy, r]
         return res
 
-    def synergy3(self):
+    def synergy(self):
         N = len(self.internalSet)
         synergy = np.zeros([N, N])
         total_error = 0
         self.lastMessage="0%"
         t0=time()
         print('starting batch of '+ str(N))
+        #good for debug without parrallel
+        # for ind in range(N):
+        #    res=self.subSynergy(ind)
+        #    if res != None:
+        #parrallel code
         with ProcessPoolExecutor(max_workers=self.mxPrcs) as pool:
-            for res in pool.map(self.subSynergy3, range(N)):
+            for res in pool.map(self.subSynergy, range(N)):
                 synergy[:, res[1]] = res[0][:, 0]
                 if res[1] % 32 == 0:
                     gc.collect()

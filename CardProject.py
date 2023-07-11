@@ -29,6 +29,7 @@ class CardProject:
         ,trainingWeight=0.5
         ,BasisSize = -1 
         ,fine = False 
+        ,costType = 'L'
         ,label = 'Version'+str(Card.CardVersion_dontChangeAtRuntime)+"/"
         ,coresAllowed=7 
         ,deckSeeds=None
@@ -57,6 +58,7 @@ class CardProject:
         self.basisType=basisType
         self.trainingWeight=trainingWeight
         self.fine = fine
+        self.costType = costType
         self.label = label
         self.coresAllowed=coresAllowed
 
@@ -235,7 +237,7 @@ class CardProject:
         if(not os.path.isdir(ramLocation)):
             os.mkdir(ramLocation)
 
-        fname0 = 'CardInfo.' + str(numCards) + str(self.fine) 
+        fname0 = 'CardInfo.' + str(numCards) + str(self.fine) + self.costType
         
         fname = fname0 + '.Merged.pkl'
         vectorLoc = baseLocation+ fname
@@ -265,7 +267,8 @@ class CardProject:
                     cards.fine = self.fine
                     cards.synSimType = simType
                     cards.mxPrcs = self.coresAllowed
-                    synergy = cards.synergy3()
+                    cards.costType = self.costType
+                    synergy = cards.synergy()
                     elapsed2 = time() - t
                     full = len(MtgDbHelper.cards.internalSet) ** 2 / len(cards.internalSet) ** 2 / 60 / 60
                     print(f"rawCardVector for {len(cards.internalSet)}^2 {elapsed2} s expect {elapsed2 * full} hours")
@@ -582,5 +585,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=None,MatchType = 1,fine=False,resetTrainedCardMatchUse=True)
+    cp=CardProject(namedCards=None,MatchType = 1,fine=False,costType='J',resetTrainedCardMatchUse=True)
     cp.createOrLoadData()

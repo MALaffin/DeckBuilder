@@ -243,7 +243,8 @@ class CardProjectViewer:
         names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
         self.CP=CardProject(namedCards=None
             ,MatchType = 0
-            ,fine = False)
+            ,fine = False
+            ,costType = 'J')
         self.CP.createOrLoadData()
         self.button.config(state=ACTIVE) #while running disable it
 
