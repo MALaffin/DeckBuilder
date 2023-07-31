@@ -272,11 +272,11 @@ class LearnedSynergy:
         return trainedCardMatch;
 
     def trainModel(self, sampleIn, sampleOut, seed=0):
-        sizeIn=sampleIn.shape[0]
+        sizeIn=[1,1]
         if not self.model:
             self.model = tf.keras.models.Sequential([
                     tf.keras.layers.Flatten(input_shape=sizeIn),
-                    tf.keras.layers.Dense(256, activation='sigmoid'),
+                    tf.keras.layers.Dense(128, activation='sigmoid'),
                     tf.keras.layers.Dense(1, activation='linear')
                 ])
         tf.random.set_seed(seed)
@@ -286,7 +286,7 @@ class LearnedSynergy:
                            )
         # tf.config.run_functions_eagerly(True)
         # self.model.run_eagerly = True
-        self.model.fit(sampleIn, sampleOut, epochs=1, batch_size=1, verbose=0)
+        self.model.fit(sampleIn, sampleOut, epochs=100, batch_size=10, verbose=0)
         # todo:xval and likely self.model.evaluate(x_test, y_test, verbose=0)
 
     def useModel(self, dataIn):
@@ -294,15 +294,13 @@ class LearnedSynergy:
 
     @classmethod
     def selfTest(cls):
-        test = LearnedSynergy([1])
+        test = LearnedSynergy("","")
         x = np.arange(-100, 100) / 12
         y = (x ** 2 + 2 * x + 1)/120
         test.trainModel(x, y)
-        x2 = np.arange(-100, 100) / 10 + 0.005
-        y2 = (x2 ** 2 + 2 * x2 + 1)/120
-        y2Est = test.useModel(x2)
-        plot(x2.reshape(x2.size,1), y2.reshape(x2.size,1), 'Expected', 1)
-        plot(x2.reshape(x2.size,1), y2Est.reshape(x2.size,1), 'Estimated', 2)
+        yEst = test.useModel(x)
+        plot(x.reshape(x.size,1), y.reshape(x.size,1), 'Expected', 1)
+        plot(x.reshape(x.size,1), yEst.reshape(x.size,1), 'Estimated', 2)
         # self.model = tf.keras.models.Sequential([
         #     tf.keras.layers.Flatten(input_shape=sizeIn),
         #     tf.keras.layers.Dense(256, activation='sigmoid'),
@@ -339,3 +337,7 @@ class LearnedSynergy:
         #session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
         #sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
         #K.set_session(sess)
+
+if __name__ == '__main__':
+
+    LearnedSynergy.selfTest()
