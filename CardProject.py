@@ -25,7 +25,8 @@ class CardProject:
         ,resetTrainedCardMatch = None 
         ,resetTrainedCardMatchUse = None
         ,namedCards = None 
-        ,MatchType=1
+        ,MatchType=2
+        ,preProcSize=16
         ,trainingWeight=0.5
         ,BasisSize = -1 
         ,fine = False 
@@ -54,6 +55,7 @@ class CardProject:
 
         #options
         self.MatchType=MatchType
+        self.preProcSize=preProcSize
         self.BasisSize = BasisSize
         self.basisType=basisType
         self.trainingWeight=trainingWeight
@@ -286,29 +288,27 @@ class CardProject:
                 f.close()
             
             gc.collect()
-
-        
         
         # looking for a distance function... rawCardVector as the base so I don't need to use Levenstein on raw text again
-    
         distLoc = vectorLoc.replace('.pkl',  '.dist.pkl')
         iconLocList = vectorLoc.replace('.pkl',  '.'+self.basisType+'Icons.txt')
         iconLoc = vectorLoc.replace('.pkl',  '.IS' + str(self.BasisSize)+'.'+self.basisType+'.pkl')
-        #iconLoc0 = vectorLoc0.replace('.pkl',  '.IS' + str(self.BasisSize)+'.pkl')
         if self.MatchType==0:
             TrainedCardMatchLoc = iconLoc.replace('.pkl', '.HeuristicMatch.pkl')
         else:
             P=self.trainingWeight
-            modelCardMatchLoc = iconLoc.replace('.pkl', '.'+str(P)+'.TrainedCardMatch.model/')
-            TrainedCardMatchLoc = iconLoc.replace('.pkl', '.'+str(P)+'.TrainedCardMatch.pkl')
+            if self.MatchType>1:
+                preProcLoc = iconLoc.replace('.pkl', '.preProc'+str(self.MatchType)+'.'+str(self.preProcSize)+'.pkl')
+            else:
+                preProcLoc = iconLoc;
+            modelCardMatchLoc = preProcLoc.replace('.pkl', '.'+str(P)+'.TrainedCardMatch.model/')
+            TrainedCardMatchLoc = preProcLoc.replace('.pkl', '.'+str(P)+'.TrainedCardMatch.pkl')
         pcaCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.pca.pkl')
         distCardMatchLoc = TrainedCardMatchLoc.replace('.pkl', '.dist.pkl')
         deckBase=TrainedCardMatchLoc.replace('.pkl','.Deck.')
             
 
         iconLoc0=iconLoc
-        #if exists(iconLoc) and not exists(iconLoc0):
-        #    shutil.copyfile(iconLoc, iconLoc0)
         if not self.resetIcons and exists(iconLoc0):
             with open(iconLoc0, 'rb') as file:
                 iconInfo = dill.load(file)
@@ -390,6 +390,26 @@ class CardProject:
             del rawCardVector
             deckBase=vectorLoc.replace('.pkl','.Deck.')
         else:    
+            if self.MatchType==2: #
+                if not self.resetTrainedCardMatch and exists(preProcLoc):
+                    with open(preProcLoc, 'rb') as file:
+                        preWeights = dill.load(file)
+                        file.close()
+                else:
+                    #todo: cosider finding v from basis for reusability and speed
+                    t0=time()
+                    print('started eig pre')
+                    temp = rawCardVector[self.BasisIndexes,:]
+                    temp = np.matmul(temp,temp.transpose())
+                    w, preWeights = np.linalg.eig(temp)
+                    del w
+                    del temp
+                    with open(preProcLoc, "wb") as f:
+                        dill.dump(preWeights, f)
+                        f.close()
+                    print('eig pre done after '+str((time()-t0)/60) + ' minutes')
+
+
             #training strategy notes:
             # card matching heuristic is used to build decks from a pairwise matrix
             #  I want to influence scores with my own decks and any of my own combos
@@ -447,11 +467,15 @@ class CardProject:
                         if not ind in deckAndCombos:
                             chaff.append(ind)
 
-                N=rawCardVector.shape[1]
-                reducedVector=np.concatenate(
-                    (rawCardVector[self.BasisIndexes,:],
-                    rawCardVector[[s+N for s in self.BasisIndexes],:],
-                    rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
+                
+                if self.MatchType==2: #
+                    reducedVector=np.matmul(preWeights[range(0,self.preProcSize),:],rawCardVector[self.BasisIndexes,:]);
+                else:
+                    N=rawCardVector.shape[1]
+                    reducedVector=np.concatenate(
+                        (rawCardVector[self.BasisIndexes,:],
+                        rawCardVector[[s+N for s in self.BasisIndexes],:],
+                        rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
 
                 LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
                 
@@ -478,10 +502,13 @@ class CardProject:
             else:
                 LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
                 N=rawCardVector.shape[1]
-                reducedVector=np.concatenate(
-                    (rawCardVector[self.BasisIndexes,:],
-                    rawCardVector[[s+N for s in self.BasisIndexes],:],
-                    rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
+                if self.MatchType==2: #
+                    reducedVector=np.matmul(preWeights[range(0,self.preProcSize),:],rawCardVector[self.BasisIndexes,:]);
+                else:
+                    reducedVector=np.concatenate(
+                        (rawCardVector[self.BasisIndexes,:],
+                        rawCardVector[[s+N for s in self.BasisIndexes],:],
+                        rawCardVector[[s+2*N for s in self.BasisIndexes],:]),axis=0)
                 trainedCardMatch = LS.useModel2(reducedVector,True,showPlots=1)
                 plt.show(block=True)
 
@@ -585,5 +612,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=None,MatchType = 1,fine=False,costType='J',resetTrainedCardMatchUse=True)
+    cp=CardProject(namedCards=None,MatchType = 2,preProcSize=32,fine=False,costType='J',resetTrainedCardMatchUse=True)
     cp.createOrLoadData()
