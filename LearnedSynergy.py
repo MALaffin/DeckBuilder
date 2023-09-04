@@ -7,6 +7,26 @@ import dill
 from time import *
 import gc
 
+# #https://www.tensorflow.org/api_docs/python/tf/config/set_logical_device_configuration
+# p_dev=tf.config.list_physical_devices('CPU')
+
+# try:
+#     tf.config.set_logical_device_configuration(
+#         p_dev[0],
+#         [tf.config.LogicalDeviceConfiguration(),
+#         tf.config.LogicalDeviceConfiguration(),
+#         tf.config.LogicalDeviceConfiguration(),
+#         tf.config.LogicalDeviceConfiguration(),
+#         tf.config.LogicalDeviceConfiguration(),
+#         tf.config.LogicalDeviceConfiguration()])
+# except Exception as err:
+#     print('could not initialize')
+#     print(f"Error: '{err}'")
+# l_dev=tf.config.list_logical_devices('CPU')
+
+
+
+
 print("TensorFlow version:", tf.__version__)
 
 
@@ -123,6 +143,9 @@ class LearnedSynergy:
         if not reset and exists(self.modelSaveLoc):
             self.model=tf.keras.models.load_model(self.modelSaveLoc)
         else:
+            # #https://saturncloud.io/blog/why-does-tensorflow-only-find-one-cpu-device-despite-having-multiple-cores/
+            # strategy = tf.distribute.MirroredStrategy(["/device:CPU:0", "/device:CPU:1"])
+            # with strategy.scope():
             self.model = tf.keras.models.Sequential([
                 tf.keras.layers.Flatten(input_shape=(sizeIn,1)),
                 #tf.keras.layers.Dense(width,  activation='softmax'),
@@ -131,7 +154,7 @@ class LearnedSynergy:
                 tf.keras.layers.Dense(width,  activation='sigmoid'),
                 tf.keras.layers.Dense(width2,  activation='sigmoid'),
                 tf.keras.layers.Dense(1, activation='linear')
-            ])                   
+            ])
             self.model.compile(optimizer='RMSprop',#'FTRL',#'adadelta',#
                 loss='mean_squared_error',  # self.error,#
                 #loss='mean_squared_logarithmic_error',  # self.error,#
@@ -139,7 +162,7 @@ class LearnedSynergy:
                 metrics=['mean_absolute_error']
                 )
         dataBytes=(2*V*8)*Ntrain*Ntrain #(vector to train, 8bytes/double)*rows*cols
-        dataBytesTarget=6e9#memory spikes killing python terminal#8e9
+        dataBytesTarget=8e9#memory spikes killing python terminal#8e9
         blocks=int(np.ceil(dataBytes/dataBytesTarget))
         trainStep=int(np.ceil(Ntrain/blocks))
         #consider iterations of training on the outside

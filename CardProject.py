@@ -469,7 +469,10 @@ class CardProject:
 
                 
                 if self.MatchType==2: #
-                    reducedVector=np.matmul(preWeights[range(0,self.preProcSize),:],rawCardVector[self.BasisIndexes,:]);
+                    N=self.preProcSize
+                    if(N<1):
+                        N=len(self.BasisIndexes)
+                    reducedVector=np.matmul(preWeights[range(0,N),:],rawCardVector[self.BasisIndexes,:]);
                 else:
                     N=rawCardVector.shape[1]
                     reducedVector=np.concatenate(
@@ -482,11 +485,11 @@ class CardProject:
                 t0=time()
                 e4=LS.trainModel2(reducedVector,[],[],combos,128*32,True,P,showPlots=0)
                 errCheck=[]
-                overEpochs=128;
+                overEpochs=64;
                 for lcv in range(overEpochs): 
-                    e2=LS.trainModel2(reducedVector,[],[],combos,32,False,P,showPlots=0)
+                    e2=-1#LS.trainModel2(reducedVector,[],[],combos,32,False,P,showPlots=0)
                     e1=-1#LS.trainModel2(reducedVector,[],decks,combos,2,False,??,showPlots=0)
-                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,1,False,P,showPlots=0)
+                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,16,False,P,showPlots=0)
                     timeTaken=(time()-t0)/60
                     errCheck.append([lcv, e0, e1, e2])
                     summary=str(lcv)+', '+str(e0)+', '+str(e1)+', '+str(e2)+', '+str(timeTaken)+'\r\n'
@@ -502,8 +505,11 @@ class CardProject:
             else:
                 LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
                 N=rawCardVector.shape[1]
-                if self.MatchType==2: #
-                    reducedVector=np.matmul(preWeights[range(0,self.preProcSize),:],rawCardVector[self.BasisIndexes,:]);
+                if self.MatchType==2: #                    
+                    N=self.preProcSize
+                    if(N<1):
+                        N=len(self.BasisIndexes)
+                    reducedVector=np.matmul(preWeights[range(0,N),:],rawCardVector[self.BasisIndexes,:]);
                 else:
                     reducedVector=np.concatenate(
                         (rawCardVector[self.BasisIndexes,:],
@@ -612,5 +618,5 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=None,MatchType = 2,preProcSize=32,fine=False,costType='J',resetTrainedCardMatchUse=True)
+    cp=CardProject(namedCards=None,MatchType = 2,preProcSize=768,fine=False,costType='J',resetTrainedCardMatchUse=True)
     cp.createOrLoadData()
