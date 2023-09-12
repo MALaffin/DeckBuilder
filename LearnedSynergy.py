@@ -37,7 +37,7 @@ class LearnedSynergy:
         self.userSaveLoc=userSaveLoc
         self.scaleValue=1.0
     
-    def trainModel2(self, vector, chaff, decks, combos, reps, reset, relevancePower, showPlots=False):
+    def trainModel2(self, vector, chaff, decks, combos, reps, maxReps, reset, relevancePower, showPlots=False):
         
         cardlist=chaff.copy()
         for deck in decks:
@@ -134,7 +134,7 @@ class LearnedSynergy:
         # need about three classes; chaff, decks, combo
 
         V=vector.shape[0]
-        width=np.ceil(32)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
+        width=np.ceil(128)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
         width2=3**2#combinations of subgroups
         #width=np.ceil(4*50000/(V*2))
         #width=4#np.ceil(5000/(V*2))
@@ -151,6 +151,7 @@ class LearnedSynergy:
                 #tf.keras.layers.Dense(width,  activation='softmax'),
                 #tf.keras.layers.Dense(width2,  activation='softmax'),
                 #tf.keras.layers.Dense(width,  activation='tanh'),
+                tf.keras.layers.Dense(width,  activation='sigmoid'),
                 tf.keras.layers.Dense(width,  activation='sigmoid'),
                 tf.keras.layers.Dense(width2,  activation='sigmoid'),
                 tf.keras.layers.Dense(1, activation='linear')
@@ -181,9 +182,9 @@ class LearnedSynergy:
         fullRelevance[match==deckValue]=(nCombo/np.sum(match==deckValue))**relevancePower
         fullRelevance[match==comboValue]=1
         epochs=1;
-        if reps>16:
-            epochs=int(reps/16);
-            reps=16
+        if reps>maxReps:
+            epochs=int(reps/maxReps);
+            reps=maxReps
 
         for rep in range(reps):
             t0=time()

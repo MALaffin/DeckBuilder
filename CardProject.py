@@ -483,13 +483,13 @@ class CardProject:
                 LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
                 
                 t0=time()
-                e4=LS.trainModel2(reducedVector,[],[],combos,128*32,True,P,showPlots=0)
+                e4=LS.trainModel2(reducedVector,[],[],combos,256*16,16,True,P,showPlots=0)
                 errCheck=[]
-                overEpochs=64;
+                overEpochs=32;
                 for lcv in range(overEpochs): 
                     e2=-1#LS.trainModel2(reducedVector,[],[],combos,32,False,P,showPlots=0)
                     e1=-1#LS.trainModel2(reducedVector,[],decks,combos,2,False,??,showPlots=0)
-                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,16,False,P,showPlots=0)
+                    e0=LS.trainModel2(reducedVector,chaff,decks,combos,16,16,False,P,showPlots=0)
                     timeTaken=(time()-t0)/60
                     errCheck.append([lcv, e0, e1, e2])
                     summary=str(lcv)+', '+str(e0)+', '+str(e1)+', '+str(e2)+', '+str(timeTaken)+'\r\n'
