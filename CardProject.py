@@ -35,6 +35,7 @@ class CardProject:
         ,coresAllowed=7 
         ,deckSeeds=None
         ,basisType="None"#"Combos"#"CombosSubset"#"DecksCombosSubset" #"DecksSubset"#"Decks"#"DecksCombos"#
+        ,TrainedCardMatchPrime=256,TrainedCardMatchStart=0,TrainedCardMatchEnd=128
         ):
         
         #manage major objects to backup
@@ -63,6 +64,9 @@ class CardProject:
         self.costType = costType
         self.label = label
         self.coresAllowed=coresAllowed
+        self.TrainedCardMatchPrime=TrainedCardMatchPrime
+        self.TrainedCardMatchStart=TrainedCardMatchStart
+        self.TrainedCardMatchEnd=TrainedCardMatchEnd
 
         if deckSeeds:
             self.deckSeeds=deckSeeds
@@ -427,8 +431,10 @@ class CardProject:
             # 128GB training data; (used to bae <1/3 of this with other plans)
             # need to train with chunks of data 
 
+            modelExists=exists(modelCardMatchLoc)
+            modelComplete=exists(modelCardMatchLoc) and self.TrainedCardMatchStart==0;
 
-            if not self.resetTrainedCardMatch and exists(modelCardMatchLoc):
+            if not self.resetTrainedCardMatch and modelComplete:
                 print('Model Exists')
             else:
                 deckAndCombos=[];
@@ -483,16 +489,15 @@ class CardProject:
                 LS=LearnedSynergy(modelCardMatchLoc,TrainedCardMatchLoc)
                 
                 t0=time()
-                e4=LS.trainModel2(reducedVector,[],[],combos,256*16,16,True,P,showPlots=0)
+                if not modelExists:
+                    e4=LS.trainModel2(reducedVector,[],[],combos,self.TrainedCardMatchPrime*16,16,True,P,showPlots=0)
                 errCheck=[]
-                overEpochs=32;
-                for lcv in range(overEpochs): 
-                    e2=-1#LS.trainModel2(reducedVector,[],[],combos,32,False,P,showPlots=0)
-                    e1=-1#LS.trainModel2(reducedVector,[],decks,combos,2,False,??,showPlots=0)
+                overEpochs=128;
+                for lcv in range(self.TrainedCardMatchStart,self.TrainedCardMatchEnd): 
                     e0=LS.trainModel2(reducedVector,chaff,decks,combos,16,16,False,P,showPlots=0)
                     timeTaken=(time()-t0)/60
-                    errCheck.append([lcv, e0, e1, e2])
-                    summary=str(lcv)+', '+str(e0)+', '+str(e1)+', '+str(e2)+', '+str(timeTaken)+'\r\n'
+                    errCheck.append([lcv, e0[0], e0[1], -1])
+                    summary=str(lcv)+', '+str(e0[0])+', '+str(e0[1])+', '+str(timeTaken)+'\r\n'
                     with open('repOfTrippleReps.txt','a') as f:
                         f.write(summary)
                         f.close()
@@ -618,5 +623,8 @@ if __name__ == '__main__':
         , 'Lathliss, Dragon Queen', 'Draco', 'Plains']
     names0 = ['The Mirari Conjecture', 'Power Conduit', 'Time Stretch']
     names0 = ['Scion of the Ur-Dragon', 'Teneb, the Harvester']
-    cp=CardProject(namedCards=None,MatchType = 2,preProcSize=768,fine=False,costType='J',resetTrainedCardMatchUse=True)
+    cp=CardProject(namedCards=None,
+                   MatchType = 2,preProcSize=512,fine=False,costType='J',
+                   resetTrainedCardMatchUse=True,
+                   TrainedCardMatchPrime=256,TrainedCardMatchStart=0,TrainedCardMatchEnd=32)
     cp.createOrLoadData()

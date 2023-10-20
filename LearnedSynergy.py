@@ -62,19 +62,26 @@ class LearnedSynergy:
         comboValue=self.scaleValue
         Ntrain=len(cardlist)
         match=np.ones((Ntrain,Ntrain))*baselineValue
+        #todo add top&Bottom chaff deck combo; 
+        # 3-7 items trained should inject sub structures used by matching
+        # debate more complicated networks to constrain them togather
+        types=np.ones((Ntrain,1))
         for card in chaff:
             c=cardlist.index(card)
             match[c,:]=chaffValue
             match[:,c]=chaffValue
+            types[c]=chaffValue;
         for deck in decks:
             for card1 in deck:
                 c1=cardlist.index(card1)
+                types[c1]=deckValue;
                 for card2 in deck:
                     c2=cardlist.index(card2)
                     match[c1,c2]=max(match[c1,c2],deckValue)
         for combo in combos:
             for card1 in combo:
                 c1=cardlist.index(card1)
+                types[c1]=comboValue;
                 for card2 in combo:
                     c2=cardlist.index(card2)
                     match[c1,c2]=max(match[c1,c2],comboValue)
@@ -133,9 +140,11 @@ class LearnedSynergy:
         # need about 2x to to bound the sides with simple sigmoinds (1d aprox)
         # need about three classes; chaff, decks, combo
 
+        weightsSize=3;
         V=vector.shape[0]
-        width=np.ceil(128)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
-        width2=3**2#combinations of subgroups
+        width=np.ceil(256)#32 close to 4*50000/(V*2);~128 combo parts but many overlap; 
+        numGroups=3;
+        width2=2*numGroups+numGroups**2#combinations of subgroups
         #width=np.ceil(4*50000/(V*2))
         #width=4#np.ceil(5000/(V*2))
         sizeIn=V*2 
@@ -154,7 +163,7 @@ class LearnedSynergy:
                 tf.keras.layers.Dense(width,  activation='sigmoid'),
                 tf.keras.layers.Dense(width,  activation='sigmoid'),
                 tf.keras.layers.Dense(width2,  activation='sigmoid'),
-                tf.keras.layers.Dense(1, activation='linear')
+                tf.keras.layers.Dense(weightsSize, activation='linear')
             ])
             self.model.compile(optimizer='RMSprop',#'FTRL',#'adadelta',#
                 loss='mean_squared_error',  # self.error,#
@@ -163,7 +172,7 @@ class LearnedSynergy:
                 metrics=['mean_absolute_error']
                 )
         dataBytes=(2*V*8)*Ntrain*Ntrain #(vector to train, 8bytes/double)*rows*cols
-        dataBytesTarget=8e9#memory spikes killing python terminal#8e9
+        dataBytesTarget=6e9#memory spikes killing python terminal#8e9
         blocks=int(np.ceil(dataBytes/dataBytesTarget))
         trainStep=int(np.ceil(Ntrain/blocks))
         #consider iterations of training on the outside
@@ -173,7 +182,7 @@ class LearnedSynergy:
         fullErr=0
         lastErr=np.nan
         trainVec=np.zeros((trainStep*Ntrain,2*V))
-        weights=np.zeros((trainStep*Ntrain,1))
+        weights=np.zeros((trainStep*Ntrain,weightsSize))
         relevance=np.ones((trainStep*Ntrain,1))
         fullRelevance=0*match;
         nCombo=np.sum(match==comboValue)
@@ -203,6 +212,9 @@ class LearnedSynergy:
                     #del bot
                     #gc.collect()
                     weights[region,0]=match[CBlock,r]
+                    if(weightsSize==3):
+                        weights[region,1]=types[CBlock,0]
+                        weights[region,2]=types[r]                    
                     relevance[region,0]=fullRelevance[CBlock,r]
                     trainVec[region,0:V]=trainVecsT[r,:]+trainVecsT[CBlock,:]
                     trainVec[region,V:(2*V)]=trainVecsT[r,:]-trainVecsT[CBlock,:]
@@ -224,11 +236,16 @@ class LearnedSynergy:
 
         self.model.save(self.modelSaveLoc,overwrite=True)
         
+        TestOnTrain=self.useModel2(vector[:,cardlist], True)
+        error=np.mean(np.abs(TestOnTrain-match))
+        print("new err:"+str(error)+" tf err:" + str(fullErr/self.scaleValue/Ntrain/reps))
         if showPlots:
-            self.useModel2(vector[:,cardlist], False, showPlots)
+            fig, ax = plt.subplots(nrows=1, figsize=(4, 4), num=showPlots+1)
+            h = ax.imshow(TestOnTrain, vmin=0,
+                vmax=self.scaleValue, aspect='auto')
             plt.show(block=False)
         
-        return fullErr/self.scaleValue/Ntrain/reps
+        return [error, fullErr]#fullErr/self.scaleValue/Ntrain/reps
 
     
     def useModel2(self, vector, reset, showPlots=0):
