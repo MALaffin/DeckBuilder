@@ -43,11 +43,13 @@ end
  test=model*terms;
  
  figure(1);
- plot(truth,test,'rx')
+ plot(truth,test,'bo')
  
- [model, errors] = vectorInterpolationTrain(train_vectors,train_truth,100);
- test2=model.run(train_vectors,model);
- figure(2);
+ [model, errors] = vectorInterpolationTrain(train_vectors,train_truth,200);
+ test2=model.run(vectors,model);
+ figure(1)
+ hold on
  plot(truth,test2,'rx')
+ hold off
 
  
