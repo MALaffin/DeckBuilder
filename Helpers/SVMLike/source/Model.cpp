@@ -1,9 +1,14 @@
 #include "Model.hpp"
 #include <stdio.h>
 
+#define extraDebug
+#if defined extraDebug
+#include <iostream>
+#endif
+
 //statics
-char Model::s_status[Model::s_buffLen+1];
-char Model::s_paramName[Model::s_buffLen+1];
+char Model::s_status[Model::s_buffLen];
+char Model::s_paramName[Model::s_buffLen];
 vector<Model*> Model::s_trackedObjects;
 
 Model::Model(){
@@ -18,7 +23,7 @@ Model::~Model(){
     //hopefully no work    
 }
 
-const char * Model::makeModel(Model* p_this){
+const char * Model::makeModel(Model*& p_this){
     p_this = new Model();
     s_trackedObjects.push_back(p_this);
     return NULL;
@@ -49,12 +54,12 @@ const char * Model::getNumSettings(const Model* p_this
 }
 
 const char * Model::getName(const Model* p_this
-, const size_t p_settingInd, size_t& p_numVals, const char * p_name){
+, const size_t p_settingInd, size_t& p_numVals, const char *& p_name){
     if(p_settingInd>p_this->m_settings.size())
         return setStatus("index too big",__FUNCTION__);
     NamedValues::const_iterator it=p_this->m_settings.begin();
     advance(it,p_settingInd);
-    size_t chars=it->first.size()<s_buffLen?it->first.size():s_buffLen;//always keep a null at the end
+    size_t chars=it->first.size()<s_buffLen-1?it->first.size():s_buffLen-1;//always keep a null at the end
     copy(&it->first[0],&it->first[0]+chars,s_paramName);
     s_paramName[chars]='\0';
     p_name=s_paramName;
@@ -63,11 +68,24 @@ const char * Model::getName(const Model* p_this
 }
 
 const char * Model::set(Model* p_this, const char * p_setting, const size_t p_ind, const double p_val){
-    NamedValues::iterator it=p_this->m_settings.find(p_setting);
+    NamedValues::iterator it=p_this->m_settings.find(string(p_setting));
     if(it==p_this->m_settings.end())
         return setStatus("'"+string(p_setting) +"' not found",__FUNCTION__);
-    if(it->second.size()<p_ind-1)
+    if(it->second.size()>p_ind+1)
+        return setStatus("'"+string(p_setting) +"' too small",__FUNCTION__);
+    it->second[p_ind]=p_val;
+    return NULL;
+}
+
+const char * Model::add(Model* p_this, const char * p_setting, const size_t p_ind, const double p_val){
+    NamedValues::iterator it=p_this->m_settings.find(string(p_setting));
+    if(it==p_this->m_settings.end()){
+        p_this->m_settings[string(p_setting)];
+        it=p_this->m_settings.find(string(p_setting));
+    }
+    if(it->second.size()<p_ind+1){
         it->second.resize(p_ind);
+    }
     it->second[p_ind]=p_val;
     return NULL;
 }
@@ -76,7 +94,7 @@ const char * Model::get(const Model* p_this, const char * p_setting, size_t p_in
     NamedValues::const_iterator it=p_this->m_settings.find(p_setting);
     if(it==p_this->m_settings.end())
         return setStatus("'"+string(p_setting) +"' not found",__FUNCTION__);
-    if(it->second.size()<p_ind-1)
+    if(it->second.size()<p_ind+1)
         return setStatus("'"+string(p_setting) +"' does not have enough elements",__FUNCTION__);
     p_val=it->second[p_ind];
     return NULL;
@@ -163,19 +181,29 @@ const char * Model::unitTests(int test){
     if(s_trackedObjects.size()!=1)
         return setStatus("'"+string(err) +"' s_trackedObjects check 1 ",__FUNCTION__);
 
+    #if defined extraDebug
+    std::cout<<"set1\r\n";
+    #endif
+
     err=Model::set(test1, "InputSize", 0, 1);
     if(err)
         return setStatus("'"+string(err) +"' set input size",__FUNCTION__);
     err=Model::set(test1, "OutputSize", 0, 2);
     if(err)
         return setStatus("'"+string(err) +"' set output size",__FUNCTION__);
-    err=Model::set(test1, "NewSetting", 0, 3);
+    #if defined extraDebug
+    std::cout<<"add1\r\n";
+    #endif
+    err=Model::add(test1, "NewSetting", 1, 3);
     if(err)
         return setStatus("'"+string(err) +"' set new 0",__FUNCTION__);
-    err=Model::set(test1, "NewSetting", 1, 4);
+    err=Model::set(test1, "NewSetting", 0, 4);
     if(err)
         return setStatus("'"+string(err) +"' set new 1",__FUNCTION__);
-
+    
+    #if defined extraDebug
+    std::cout<<"save1\r\n";
+    #endif
     err=Model::save(test1, "unitTestSaveModel.mdl");
     if(err)
         return setStatus("'"+string(err) +"' save",__FUNCTION__);
@@ -186,11 +214,17 @@ const char * Model::unitTests(int test){
         return setStatus("'"+string(err) +"' test2 create",__FUNCTION__);
     if(s_trackedObjects.size()!=2)
         return setStatus("'"+string(err) +"' s_trackedObjects check 2 ",__FUNCTION__);
-
+    
+    #if defined extraDebug
+    std::cout<<"load1\r\n";
+    #endif
     err=Model::load(test2, "unitTestSaveModel.mdl");
     if(err)
         return setStatus("'"+string(err) +"' save",__FUNCTION__);
     
+    #if defined extraDebug
+    std::cout<<"compare1\r\n";
+    #endif
     size_t numSettings;
     err=getNumSettings(test2, numSettings);
     if(err)
@@ -198,28 +232,47 @@ const char * Model::unitTests(int test){
     if(numSettings!=test1->m_settings.size())
         return setStatus("wrong number of settings",__FUNCTION__);
     for(size_t s=0;s<numSettings;s++){
+        #if defined extraDebug
+        std::cout<<"compare2\r\n";
+        #endif
         size_t numVals1;
         const char * name1;
-        getName(test1,s,numVals1,name1);
+        err=getName(test1,s,numVals1,name1);
+        if(err)
+            return setStatus("'"+string(err) +"' getName",__FUNCTION__);
+        string n1=name1;
         size_t numVals2;
         const char * name2;
-        getName(test1,s,numVals2,name2);
+        err=getName(test1,s,numVals2,name2);
+        if(err)
+            return setStatus("'"+string(err) +"' getName",__FUNCTION__);
+        string n2=name2;
         if(numVals1!=numVals2)
             return setStatus("wrong number of vals",__FUNCTION__);
-        if(string(name1)!=string(name2))
+        if(n1!=n2)
             return setStatus("wrong names",__FUNCTION__);
         for(size_t ind=0;ind<numVals1;ind++){
+            #if defined extraDebug
+            std::cout<<"compare3,"<<name1<<","<<ind<<"\r\n";
+            #endif
             double v1,v2;
             err=get(test1,name1,ind,v1);
             if(err)
-                return setStatus("could not get val1",__FUNCTION__);
+                return setStatus("'"+string(err) +"' could not get val1",__FUNCTION__);
             err=get(test2,name1,ind,v2);
             if(err)
-                return setStatus("could not get val2",__FUNCTION__);
+                return setStatus("'"+string(err) +"' could not get val2",__FUNCTION__);
+            #if defined extraDebug
+            std::cout<<"compare4,"<<v1<<","<<v2<<"\r\n";
+            #endif
+            if(v1!=v2)
+                return setStatus("wrong vals",__FUNCTION__);
         }
     }
 
-
+    #if defined extraDebug
+    std::cout<<"destroy1\r\n";
+    #endif
     err=destroyModel(test1);
     if(err)
         return setStatus("'"+string(err) +"' test1 destroy",__FUNCTION__);
@@ -227,6 +280,9 @@ const char * Model::unitTests(int test){
         return setStatus("'"+string(err) +"' s_trackedObjects check 3 ",__FUNCTION__);
 
 
+    #if defined extraDebug
+    std::cout<<"destroy2\r\n";
+    #endif
     err=destroyAll();
     if(err)
         return setStatus("'"+string(err) +"' destroy all",__FUNCTION__);
@@ -238,7 +294,7 @@ const char * Model::unitTests(int test){
 
 const char * Model::setStatus(const string& msg,const string& loc){
     string fullMsg=msg+" in "+loc;
-    size_t chars=fullMsg.size()<s_buffLen?fullMsg.size():s_buffLen;//always keep a null at the end
+    size_t chars=fullMsg.size()<s_buffLen-1?fullMsg.size():s_buffLen-1;//always keep a null at the end
     copy(&fullMsg[0],&fullMsg[0]+chars,s_status);
     s_status[chars]='\0';
     return &s_status[0];

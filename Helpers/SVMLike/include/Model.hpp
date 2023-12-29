@@ -19,7 +19,7 @@ class PORT Model{
         
         //This class will be interfaced to other non-C# code
         //The plan is to use static methods on addresses in this space
-        PORT static const char * makeModel(Model* p_this);//allocator
+        PORT static const char * makeModel(Model*& p_this);//allocator
         PORT static const char * destroyModel(Model* p_this);//deallocator
         PORT static const char * destroyAll();//risk of memory leaks may justify a kill switch
         //Allow user to get keys of the internal map
@@ -27,9 +27,12 @@ class PORT Model{
         , size_t& p_numSettings);
         PORT static const char * getName(const Model* p_this
         , const size_t p_settingInd
-        , size_t& p_numVals, const char * p_name);
-        //allow user to set keys (add if not existant; grow if needed)
+        , size_t& p_numVals, const char *& p_name);
+        //allow user to set keys (err if not existant or too small)
         PORT static const char * set(Model* p_this
+        , const char * p_setting, const size_t p_ind, const double p_val);
+        //allow user to set keys (add if not existant; grow if needed)
+        PORT static const char * add(Model* p_this
         , const char * p_setting, const size_t p_ind, const double p_val);
         //allow user to get value
         PORT static const char * get(const Model* p_this
@@ -51,7 +54,7 @@ class PORT Model{
         //basic test method
         PORT static const char * unitTests(int test);
         //max buffer length used by Model
-        static const size_t s_buffLen=1023;
+        static const size_t s_buffLen=1024;
     protected:
         static const char * setStatus(const string& msg,const string& loc);//helper for error messages
     private:
@@ -59,8 +62,8 @@ class PORT Model{
         map<string,vector<double>> m_settings;
         map<string,vector<double>> m_parameters;
         //going to dump error mesages & string names here
-        static char s_status[s_buffLen+1];
-        static char s_paramName[s_buffLen+1];
+        static char s_status[s_buffLen];
+        static char s_paramName[s_buffLen];
         static vector<Model*> s_trackedObjects;
 
         //basic modeling Operations 

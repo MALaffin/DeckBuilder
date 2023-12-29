@@ -8,7 +8,7 @@ SVMLike1::SVMLike1()/*:Model()*/{
 SVMLike1::~SVMLike1(){
 
 }
-const char * SVMLike1::makeModel(Model* p_this){
+const char * SVMLike1::makeModel(Model*& p_this){
     p_this = new SVMLike1();
     return NULL;
 }

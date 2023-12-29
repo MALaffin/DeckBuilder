@@ -5,7 +5,7 @@ class PORT SVMLike1:Model{
     public:
         SVMLike1();//actual ctor
         ~SVMLike1();//actual dtor
-        PORT static const char * makeModel(Model* p_this);//allocator
+        PORT static const char * makeModel(Model*& p_this);//allocator
         PORT static const char * unitTests(int test);
     private:
         //basic modeling Operations 
