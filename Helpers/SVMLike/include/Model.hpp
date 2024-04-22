@@ -1,10 +1,9 @@
 #pragma once
-//I really like std
+#include "Logging.hpp"
 #include <map>
 #include <string>
 #include <vector>
-using namespace std;
-typedef map<string,vector<double>> NamedValues;
+typedef std::map<std::string,std::vector<double>> NamedValues;
 //some other items I expect to use globally
 typedef double real;
 #if COMPILING
@@ -43,6 +42,8 @@ class PORT Model{
         , const char * p_filename);
         PORT static const char * save(const Model* p_this
         , const char * p_filename);
+        //helper viewer method
+        PORT static const char * toString(const Model* p_this,std::string& text);
         //basic modeling Operations 
         //Input size I to be defined in "InputSize" setting 0th element
         //Ouptput size O to be defined in "OutputSize" setting 0th element
@@ -53,18 +54,15 @@ class PORT Model{
         , real* p_estimate_OxT);
         //basic test method
         PORT static const char * unitTests(int test);
-        //max buffer length used by Model
-        static const size_t s_buffLen=1024;
+        static size_t s_buffLen;
     protected:
-        static const char * setStatus(const string& msg,const string& loc);//helper for error messages
+        static Logging<Model> s_logger;//helper for error messages todo: consider using a static on Logging
     private:
         //internally stick to classes that will auto deconstruct whereever possible
-        map<string,vector<double>> m_settings;
-        map<string,vector<double>> m_parameters;
+        std::map<std::string,std::vector<double>> m_settings;
+        std::map<std::string,std::vector<double>> m_parameters;
         //going to dump error mesages & string names here
-        static char s_status[s_buffLen];
-        static char s_paramName[s_buffLen];
-        static vector<Model*> s_trackedObjects;
+        static char s_paramName[Logging<Model>::s_buffLen];
 
         //basic modeling Operations 
         //Input size I to be defined in "InputSize" setting 0th element

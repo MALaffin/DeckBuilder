@@ -12,12 +12,16 @@
 #include <iostream>
 int main(){
     std::cout<<"test purposes only\r\n";
-    string err;
-    err=string(Model::unitTests(0));
-    if(!err.empty())
+    const char * err;
+    err=Model::unitTests(0);
+    if(err)
         std::cout<<err<<"\r\n";
-    err=string(SVMLike1::unitTests(0));
-    if(!err.empty())
+    else
+        std::cout<<"Model OK\r\n";
+    err=SVMLike1::unitTests(0);
+    if(err)
         std::cout<<err<<"\r\n";
+    else
+        std::cout<<"SVMLike1 OK\r\n";
     return 0;
 }

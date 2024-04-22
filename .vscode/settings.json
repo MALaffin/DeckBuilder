@@ -11,6 +11,8 @@
         "iosfwd": "cpp",
         "compare": "cpp",
         "type_traits": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "tuple": "cpp",
+        "random": "cpp"
     }
 }

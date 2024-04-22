@@ -16,17 +16,21 @@ newSO=$(BIN)/SVMLike.so
 CFLAGS=-I$(IDIR) -fPIC -Werror
 CC="/usr/bin/g++-11"
 
-$(BIN)/SVMLike.so:$(ODIR)/Model.o $(ODIR)/SVMLike1.o
+$(BIN)/SVMLike.so:$(ODIR)/Model.o $(ODIR)/SVMLike1.o $(ODIR)/Matrix.o
 	@echo SVMLike link
-	$(CC) -shared -o $(BIN)/SVMLike.so $(ODIR)/Model.o $(ODIR)/SVMLike1.o
+	$(CC) -shared -o $(BIN)/SVMLike.so $(ODIR)/Model.o $(ODIR)/SVMLike1.o $(ODIR)/Matrix.o
 
-$(ODIR)/Model.o: $(SDIR)/Model.cpp $(IDIR)/Model.hpp
+$(ODIR)/Model.o: $(SDIR)/Model.cpp $(IDIR)/Model.hpp $(IDIR)/Logging.hpp
 	@echo Model compile
 	$(CC) $(CFLAGS) -c $(SDIR)/Model.cpp -o $(ODIR)/Model.o
 
-$(ODIR)/SVMLike1.o: $(SDIR)/SVMLike1.cpp $(IDIR)/SVMLike1.hpp $(IDIR)/Model.hpp
+$(ODIR)/SVMLike1.o: $(SDIR)/SVMLike1.cpp $(IDIR)/SVMLike1.hpp $(IDIR)/Model.hpp $(IDIR)/Logging.hpp
 	@echo SVMLike1 compile
 	$(CC) $(CFLAGS) -c $(SDIR)/SVMLike1.cpp -o $(ODIR)/SVMLike1.o
+
+$(ODIR)/Matrix.o: $(SDIR)/Matrix.cpp $(IDIR)/Matrix.hpp $(IDIR)/Logging.hpp
+	@echo Matrix compile
+	$(CC) $(CFLAGS) -c $(SDIR)/Matrix.cpp -o $(ODIR)/Matrix.o
 
 clean:
 	rm -f $(BIN)/SVMLike.so

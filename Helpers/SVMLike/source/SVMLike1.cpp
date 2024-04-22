@@ -1,4 +1,6 @@
 #include "SVMLike1.hpp"
+#include "Logging.hpp"
+using namespace std;
 typedef unsigned int dims;
 
 
@@ -17,20 +19,20 @@ const char * SVMLike1::unitTests(int test){
     Model* test1;
     err=makeModel(test1);
     if(err)
-        return setStatus("svmlike1 make",__FUNCTION__);
+        return s_logger.setStatus(string(err)+" svmlike1 make",__FUNCTION__);
     
     vector<real> inputs{0.0, 0.5, 1.0};
     vector<real> outputs{1.0, 0.0, 1.0};//4x^2-4x+1
     err=Model::train(test1,inputs.size(),&inputs[0],&outputs[0]);
     if(err)
-        return setStatus("svmlike1 train",__FUNCTION__);
+        return s_logger.setStatus(string(err)+" svmlike1 train",__FUNCTION__);
 
     vector<real> inputs2{0.25, 0.75};
     vector<real> outputs2{0.25, 0.25};
     vector<real> estimate2(outputs2.size());
     err=Model::test(test1, inputs.size(),&inputs2[0],&estimate2[0]);
     if(err)
-        return setStatus("svmlike1 test",__FUNCTION__);
+        return s_logger.setStatus(string(err)+" svmlike1 test",__FUNCTION__);
 
     return NULL;
 }
